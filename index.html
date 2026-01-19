@@ -2601,7 +2601,7 @@ const BoiseRiverBirdGuide = () => {
                 >
                   {/* Image with gradient overlay */}
                   <div style={{ position: 'relative' }}>
-                    <BirdImage src={bird.image} alt={bird.name} scientificName={bird.scientific} style={{ width: '100%', height: '180px' }} />
+                    <BirdImage src={bird.image} alt={bird.name} scientificName={bird.scientific} style={{ width: '100%', height: '180px' }} showCredits={false} />
                     <div style={{
                       position: 'absolute',
                       bottom: 0,
@@ -3308,13 +3308,33 @@ const BoiseRiverBirdGuide = () => {
 
               {/* Modal Content */}
               <div style={{ padding: '20px', paddingTop: '24px' }}>
-                {/* Bird Image */}
-                <BirdImage
-                  src={selectedBird.image}
-                  alt={selectedBird.name}
-                  scientificName={selectedBird.scientific}
-                  style={{ width: '100%', height: '240px', borderRadius: '18px', marginBottom: '20px' }}
-                />
+                {/* Bird Image - tappable to view source */}
+                <div style={{ position: 'relative', marginBottom: '20px' }}>
+                  <BirdImage
+                    src={selectedBird.image}
+                    alt={selectedBird.name}
+                    scientificName={selectedBird.scientific}
+                    style={{ width: '100%', height: '240px', borderRadius: '18px' }}
+                  />
+                  {/* Tap hint overlay */}
+                  <div style={{
+                    position: 'absolute',
+                    top: '12px',
+                    left: '12px',
+                    background: 'rgba(0,0,0,0.6)',
+                    color: '#fff',
+                    padding: '6px 10px',
+                    borderRadius: '6px',
+                    fontSize: '11px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    pointerEvents: 'none',
+                  }}>
+                    <span>📷</span>
+                    <span>Tap for source</span>
+                  </div>
+                </div>
 
                 {/* Name and Scientific */}
                 <div style={{ textAlign: 'center', marginBottom: '20px' }}>
