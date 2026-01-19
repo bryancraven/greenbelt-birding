@@ -1,0 +1,14 @@
+# Backup files
+*.bak
+
+# Wrangler local files
+worker/.wrangler/
+
+# Old/unused files
+boise-bird-guide.jsx
+
+# OS files
+.DS_Store
+
+# Claude Code
+CLAUDE.md

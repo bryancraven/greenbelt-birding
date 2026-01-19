@@ -1,0 +1,3017 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Boise River Greenbelt Bird Guide</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=Fraunces:ital,opsz,wght@0,9..144,100..900;1,9..144,100..900&display=swap" rel="stylesheet">
+  <meta name="description" content="Discover which birds you might see on the Boise River Greenbelt with real-time predictions based on weather and time of day. Interactive guide featuring 80+ species with calls, photos, and identification tips.">
+  <meta property="og:title" content="Boise River Greenbelt Bird Guide">
+  <meta property="og:description" content="Real-time bird sighting predictions for Idaho's premier urban trail">
+  <meta property="og:type" content="website">
+  <meta name="theme-color" content="#2d5a3d">
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    :root {
+      --bg-primary: #f8f6f2;
+      --bg-secondary: #ffffff;
+      --bg-tertiary: #f0ede6;
+      --text-primary: #1a1a1a;
+      --text-secondary: #5c5c5c;
+      --text-muted: #8a8a8a;
+      --accent-forest: #2d5a3d;
+      --accent-sage: #7d9a6f;
+      --accent-moss: #a8c69f;
+      --accent-warm: #d4a574;
+      --accent-sky: #6ba3be;
+      --glass-bg: rgba(255, 255, 255, 0.7);
+      --glass-border: rgba(255, 255, 255, 0.3);
+      --shadow-sm: 0 2px 8px rgba(0,0,0,0.04);
+      --shadow-md: 0 8px 32px rgba(0,0,0,0.08);
+      --shadow-lg: 0 16px 48px rgba(0,0,0,0.12);
+      --shadow-glow: 0 0 40px rgba(125, 154, 111, 0.15);
+      --radius-sm: 12px;
+      --radius-md: 20px;
+      --radius-lg: 28px;
+      --radius-xl: 40px;
+      --transition-fast: 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+      --transition-smooth: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      --transition-bounce: 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    h1, h2, h3, h4 {
+      font-family: 'Fraunces', Georgia, serif;
+      font-weight: 500;
+      letter-spacing: -0.02em;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.6; transform: scale(0.95); }
+    }
+
+    @keyframes float {
+      0%, 100% { transform: translateY(0px); }
+      50% { transform: translateY(-6px); }
+    }
+
+    @keyframes shimmer {
+      0% { background-position: -200% 0; }
+      100% { background-position: 200% 0; }
+    }
+
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes slideInRight {
+      from { opacity: 0; transform: translateX(30px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+
+    @keyframes scaleIn {
+      from { opacity: 0; transform: scale(0.9); }
+      to { opacity: 1; transform: scale(1); }
+    }
+
+    @keyframes gradientShift {
+      0%, 100% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+    }
+
+    .bird-image {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      border-radius: 50%;
+    }
+
+    .bird-image-large {
+      width: 100%;
+      height: 200px;
+      object-fit: cover;
+      border-radius: var(--radius-md);
+    }
+
+    /* Custom scrollbar */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: var(--accent-moss);
+      border-radius: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--accent-sage);
+    }
+
+    /* Selection color */
+    ::selection {
+      background: var(--accent-moss);
+      color: var(--text-primary);
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel">
+    const { useState, useEffect, useMemo } = React;
+
+// Wikimedia Commons image helper - gets resized images
+const wikiImg = (filename, width = 300) =>
+  `https://commons.wikimedia.org/wiki/Special:FilePath/${encodeURIComponent(filename)}?width=${width}`;
+
+// Modern Audio Miniplayer Component for Bird Calls
+const BirdCallPlayer = ({ scientificName, birdName }) => {
+  const [recordings, setRecordings] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [currentTrack, setCurrentTrack] = useState(0);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [audioLoaded, setAudioLoaded] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [showTrackList, setShowTrackList] = useState(false);
+  const audioRef = React.useRef(null);
+
+  // Auto-fetch recordings when component mounts or bird changes
+  useEffect(() => {
+    const abortController = new AbortController();
+
+    const fetchRecordings = async () => {
+      setLoading(true);
+      setError(null);
+      setRecordings([]);
+      setCurrentTrack(0);
+      try {
+        const proxyUrl = 'https://xeno-canto-proxy.spudbc.workers.dev';
+        const response = await fetch(`${proxyUrl}?species=${encodeURIComponent(scientificName)}`, {
+          signal: abortController.signal
+        });
+        if (!response.ok) throw new Error(`Server error: ${response.status}`);
+        const data = await response.json();
+        if (data.recordings && data.recordings.length > 0) {
+          const topRecordings = data.recordings.slice(0, 8).map(r => ({
+            id: r.id,
+            url: r.file,
+            type: r.type || 'call',
+            location: r.loc,
+            recordist: r.rec,
+            quality: r.q,
+            length: r.length,
+            date: r.date,
+          }));
+          setRecordings(topRecordings);
+        } else {
+          setError('No recordings available for this species');
+        }
+      } catch (err) {
+        if (err.name === 'AbortError') return;
+        setError(err.message === 'Failed to fetch' ? 'Network error - check connection' : 'Could not load audio');
+      } finally {
+        if (!abortController.signal.aborted) {
+          setLoading(false);
+        }
+      }
+    };
+    fetchRecordings();
+
+    return () => abortController.abort();
+  }, [scientificName]);
+
+  const playPause = () => {
+    if (!audioRef.current || !audioLoaded) return;
+    if (isPlaying) {
+      audioRef.current.pause();
+      setIsPlaying(false);
+    } else {
+      audioRef.current.play().then(() => {
+        setIsPlaying(true);
+      }).catch(e => {
+        console.error('Play error:', e);
+        setError(e.name === 'NotAllowedError' ? 'Tap to enable audio playback' : 'Playback failed');
+        setIsPlaying(false);
+      });
+    }
+  };
+
+  const selectTrack = (index) => {
+    setCurrentTrack(index);
+    setIsPlaying(false);
+    setAudioLoaded(false);
+    setProgress(0);
+    setCurrentTime(0);
+    setShowTrackList(false);
+  };
+
+  const handleTimeUpdate = () => {
+    if (audioRef.current) {
+      const current = audioRef.current.currentTime;
+      const dur = audioRef.current.duration;
+      setCurrentTime(current);
+      setDuration(dur);
+      setProgress(dur > 0 ? (current / dur) * 100 : 0);
+    }
+  };
+
+  const handleSeek = (e) => {
+    if (!audioRef.current || !duration) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const percent = x / rect.width;
+    audioRef.current.currentTime = percent * duration;
+  };
+
+  const formatTime = (seconds, fallback) => {
+    if (!seconds || isNaN(seconds) || !isFinite(seconds)) {
+      return fallback || '0:00';
+    }
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const getCallTypeIcon = (type) => {
+    const t = (type || '').toLowerCase();
+    if (t.includes('song')) return '🎵';
+    if (t.includes('call')) return '📢';
+    if (t.includes('alarm')) return '⚠️';
+    if (t.includes('flight')) return '✈️';
+    return '🔊';
+  };
+
+  useEffect(() => {
+    if (audioRef.current) {
+      audioRef.current.load();
+    }
+  }, [currentTrack, recordings]);
+
+  return (
+    <div style={{
+      background: 'linear-gradient(135deg, #1a3a2a 0%, #2d5a3d 100%)',
+      borderRadius: '20px',
+      padding: '20px',
+      marginBottom: '20px',
+      color: '#fff',
+      position: 'relative',
+      overflow: 'hidden',
+    }}>
+      {/* Background decoration */}
+      <div style={{
+        position: 'absolute',
+        top: '-20px',
+        right: '-20px',
+        fontSize: '100px',
+        opacity: 0.05,
+        pointerEvents: 'none',
+      }}>🎵</div>
+
+      {/* Header */}
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        marginBottom: '16px',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div style={{
+            width: '36px',
+            height: '36px',
+            borderRadius: '10px',
+            background: 'rgba(255,255,255,0.15)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: '18px',
+          }}>
+            🔊
+          </div>
+          <div>
+            <div style={{ fontSize: '14px', fontWeight: '600' }}>Bird Calls</div>
+            <div style={{ fontSize: '11px', opacity: 0.7 }}>{birdName}</div>
+          </div>
+        </div>
+        {recordings.length > 0 && (
+          <div style={{
+            fontSize: '11px',
+            background: 'rgba(255,255,255,0.15)',
+            padding: '4px 10px',
+            borderRadius: '100px',
+          }}>
+            {recordings.length} recordings
+          </div>
+        )}
+      </div>
+
+      {/* Loading State */}
+      {loading && (
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: '12px',
+          padding: '24px',
+        }}>
+          <div style={{
+            width: '24px',
+            height: '24px',
+            border: '3px solid rgba(255,255,255,0.2)',
+            borderTopColor: '#fff',
+            borderRadius: '50%',
+            animation: 'spin 1s linear infinite',
+          }} />
+          <span style={{ fontSize: '14px', opacity: 0.9 }}>Finding recordings...</span>
+        </div>
+      )}
+
+      {/* Error State */}
+      {error && !loading && (
+        <div style={{
+          textAlign: 'center',
+          padding: '20px',
+          opacity: 0.7,
+          fontSize: '13px',
+        }}>
+          {error}
+        </div>
+      )}
+
+      {/* Player */}
+      {recordings.length > 0 && !loading && (
+        <>
+          <audio
+            ref={audioRef}
+            src={recordings[currentTrack]?.url}
+            onEnded={() => { setIsPlaying(false); setProgress(0); }}
+            onCanPlay={() => setAudioLoaded(true)}
+            onTimeUpdate={handleTimeUpdate}
+            onLoadedMetadata={(e) => setDuration(e.target.duration)}
+            onError={() => setError('Audio failed to load')}
+          />
+
+          {/* Current Track Info */}
+          <div style={{
+            background: 'rgba(255,255,255,0.1)',
+            borderRadius: '14px',
+            padding: '14px',
+            marginBottom: '14px',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              {/* Play Button */}
+              <button
+                onClick={playPause}
+                disabled={!audioLoaded}
+                aria-label={isPlaying ? 'Pause bird call' : 'Play bird call'}
+                style={{
+                  width: '56px',
+                  height: '56px',
+                  borderRadius: '50%',
+                  background: audioLoaded
+                    ? 'linear-gradient(135deg, #fff 0%, #e8f0e5 100%)'
+                    : 'rgba(255,255,255,0.3)',
+                  color: audioLoaded ? '#2d5a3d' : 'rgba(255,255,255,0.5)',
+                  border: 'none',
+                  cursor: audioLoaded ? 'pointer' : 'wait',
+                  fontSize: '24px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  transition: 'all 0.2s ease',
+                  boxShadow: audioLoaded ? '0 4px 20px rgba(0,0,0,0.3)' : 'none',
+                  flexShrink: 0,
+                }}
+              >
+                {!audioLoaded ? (
+                  <div style={{
+                    width: '20px',
+                    height: '20px',
+                    border: '2px solid rgba(45,90,61,0.3)',
+                    borderTopColor: '#2d5a3d',
+                    borderRadius: '50%',
+                    animation: 'spin 1s linear infinite',
+                  }} />
+                ) : isPlaying ? '⏸️' : '▶️'}
+              </button>
+
+              {/* Track Info */}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                  <span style={{ fontSize: '16px' }}>{getCallTypeIcon(recordings[currentTrack]?.type)}</span>
+                  <span style={{ fontSize: '15px', fontWeight: '600' }}>
+                    {recordings[currentTrack]?.type || 'Call'}
+                  </span>
+                </div>
+                <div style={{ fontSize: '12px', opacity: 0.7, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  📍 {recordings[currentTrack]?.location}
+                </div>
+              </div>
+            </div>
+
+            {/* Progress Bar */}
+            <div style={{ marginTop: '14px' }}>
+              <div
+                onClick={handleSeek}
+                role="slider"
+                aria-label="Audio playback position"
+                aria-valuemin="0"
+                aria-valuemax={Math.round(duration)}
+                aria-valuenow={Math.round(currentTime)}
+                tabIndex="0"
+                onKeyDown={(e) => {
+                  if (!audioRef.current || !duration) return;
+                  if (e.key === 'ArrowRight') audioRef.current.currentTime = Math.min(duration, currentTime + 5);
+                  if (e.key === 'ArrowLeft') audioRef.current.currentTime = Math.max(0, currentTime - 5);
+                }}
+                style={{
+                  height: '6px',
+                  background: 'rgba(255,255,255,0.2)',
+                  borderRadius: '3px',
+                  cursor: 'pointer',
+                  position: 'relative',
+                  overflow: 'hidden',
+                }}
+              >
+                <div style={{
+                  position: 'absolute',
+                  left: 0,
+                  top: 0,
+                  height: '100%',
+                  width: `${progress}%`,
+                  background: 'linear-gradient(90deg, #a8c69f, #fff)',
+                  borderRadius: '3px',
+                  transition: 'width 0.1s linear',
+                }} />
+                {/* Playhead */}
+                <div style={{
+                  position: 'absolute',
+                  left: `${progress}%`,
+                  top: '50%',
+                  transform: 'translate(-50%, -50%)',
+                  width: '12px',
+                  height: '12px',
+                  background: '#fff',
+                  borderRadius: '50%',
+                  boxShadow: '0 2px 6px rgba(0,0,0,0.3)',
+                  opacity: isPlaying || progress > 0 ? 1 : 0,
+                  transition: 'opacity 0.2s',
+                }} />
+              </div>
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                marginTop: '6px',
+                fontSize: '11px',
+                opacity: 0.6,
+              }}>
+                <span>{formatTime(currentTime)}</span>
+                <span>{formatTime(duration, recordings[currentTrack]?.length)}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Track List Toggle */}
+          <button
+            onClick={() => setShowTrackList(!showTrackList)}
+            style={{
+              width: '100%',
+              padding: '10px',
+              background: 'rgba(255,255,255,0.1)',
+              border: 'none',
+              borderRadius: '10px',
+              color: '#fff',
+              fontSize: '13px',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px',
+              transition: 'all 0.2s',
+            }}
+          >
+            <span>{showTrackList ? '▲' : '▼'}</span>
+            {showTrackList ? 'Hide' : 'Browse'} {recordings.length} Recordings
+          </button>
+
+          {/* Track List */}
+          {showTrackList && (
+            <div style={{
+              marginTop: '12px',
+              maxHeight: '200px',
+              overflowY: 'auto',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '6px',
+            }}>
+              {recordings.map((rec, index) => (
+                <button
+                  key={rec.id}
+                  onClick={() => selectTrack(index)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '10px',
+                    padding: '10px 12px',
+                    background: index === currentTrack ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.05)',
+                    border: index === currentTrack ? '1px solid rgba(255,255,255,0.3)' : '1px solid transparent',
+                    borderRadius: '10px',
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                    color: '#fff',
+                    transition: 'all 0.2s',
+                  }}
+                >
+                  <span style={{ fontSize: '16px', width: '24px', textAlign: 'center' }}>
+                    {index === currentTrack && isPlaying ? '🔊' : getCallTypeIcon(rec.type)}
+                  </span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: '13px', fontWeight: index === currentTrack ? '600' : '400' }}>
+                      {rec.type || 'Call'}
+                    </div>
+                    <div style={{ fontSize: '11px', opacity: 0.6, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {rec.location}
+                    </div>
+                  </div>
+                  <div style={{ fontSize: '11px', opacity: 0.5 }}>
+                    {rec.length || ''}
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Credit */}
+          <div style={{
+            marginTop: '12px',
+            paddingTop: '12px',
+            borderTop: '1px solid rgba(255,255,255,0.1)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            fontSize: '10px',
+            opacity: 0.5,
+          }}>
+            <span>via xeno-canto.org</span>
+            {recordings[currentTrack]?.recordist && (
+              <span>🎤 {recordings[currentTrack].recordist}</span>
+            )}
+          </div>
+        </>
+      )}
+
+      {/* Spin animation style */}
+      <style>{`
+        @keyframes spin {
+          to { transform: rotate(360deg); }
+        }
+      `}</style>
+    </div>
+  );
+};
+
+// Boise River Greenbelt Bird Database with enriched species information
+const BIRD_DATABASE = [
+  // Year-round residents
+  {
+    id: 1, name: "American Robin", scientific: "Turdus migratorius", family: "Thrushes",
+    presence: "year-round", habitat: ["riparian", "urban", "parks"], diet: "omnivore", size: "medium",
+    commonality: 0.95, weatherPrefs: { tempMin: 20, tempMax: 90, rainTolerance: 0.7, windTolerance: 0.6 },
+    description: "Common thrush with orange breast, often seen hopping on lawns searching for worms.",
+    peakHours: [6, 7, 8, 17, 18], image: wikiImg("Turdus-migratorius-002.jpg"),
+    fieldMarks: ["Brick-red breast", "Gray back", "Yellow bill", "White eye crescents", "Dark head"],
+    funFact: "Robins can eat up to 14 feet of earthworms in a day! They tilt their head to see worms, not hear them.",
+    behavior: "Runs and pauses on lawns while hunting. First bird to sing at dawn, last at dusk.",
+    lookAlikes: ["Varied Thrush (has orange eyebrow and wing bars)"],
+    nestingInfo: "Builds cup nest of grass and mud. 3-4 blue eggs. 2-3 broods per year.",
+    conservationStatus: "Least Concern",
+    wingspanInches: [12, 16],
+    lengthInches: [9, 11],
+    ebirdCode: "amerob"
+  },
+  {
+    id: 2, name: "Black-capped Chickadee", scientific: "Poecile atricapillus", family: "Chickadees",
+    presence: "year-round", habitat: ["riparian", "forest"], diet: "omnivore", size: "small",
+    commonality: 0.85, weatherPrefs: { tempMin: 0, tempMax: 85, rainTolerance: 0.5, windTolerance: 0.4 },
+    description: "Tiny acrobatic bird with black cap and bib, white cheeks. Famous 'chick-a-dee-dee-dee' call.",
+    peakHours: [7, 8, 9, 15, 16, 17], image: wikiImg("Black-capped_Chickadee_(Poecile_atricapillus).jpg"),
+    fieldMarks: ["Black cap and bib", "White cheeks", "Gray back", "Buff flanks", "Small round body"],
+    funFact: "Chickadees hide thousands of seeds each fall and remember every location. They can lower their body temperature to survive cold nights.",
+    behavior: "Acrobatic forager, often hangs upside down. Forms mixed flocks with nuthatches and kinglets in winter.",
+    lookAlikes: ["Mountain Chickadee (has white eyebrow)"],
+    nestingInfo: "Cavity nester in rotted wood. 6-8 white eggs with reddish spots.",
+    conservationStatus: "Least Concern",
+    wingspanInches: [6, 8],
+    lengthInches: [4.7, 5.9],
+    ebirdCode: "bkcchi"
+  },
+  {
+    id: 3, name: "House Finch", scientific: "Haemorhous mexicanus", family: "Finches",
+    presence: "year-round", habitat: ["urban", "riparian"], diet: "seeds", size: "small",
+    commonality: 0.9, weatherPrefs: { tempMin: 15, tempMax: 95, rainTolerance: 0.4, windTolerance: 0.5 },
+    description: "Males have rosy red head and breast, females streaky brown. Cheerful warbling song.",
+    peakHours: [6, 7, 8, 16, 17, 18], image: wikiImg("House_Finch_(male).jpg"),
+    fieldMarks: ["Male: red forehead, breast, rump", "Female: plain brown streaky", "Curved upper bill", "Notched tail"],
+    funFact: "Male color varies from yellow to orange to red depending on diet. Originally native only to western US, now found coast to coast after pet trade releases in 1940s.",
+    behavior: "Gregarious, often at feeders. Male sings long warbling song, especially in spring.",
+    lookAlikes: ["Purple Finch (male more raspberry, female has face pattern)", "Cassin's Finch (larger, peaked crown)"],
+    nestingInfo: "Nest in trees, shrubs, or building crevices. 4-5 pale blue eggs.",
+    conservationStatus: "Least Concern",
+    wingspanInches: [8, 10],
+    lengthInches: [5, 5.5],
+    ebirdCode: "houfin"
+  },
+  {
+    id: 4, name: "Northern Flicker", scientific: "Colaptes auratus", family: "Woodpeckers",
+    presence: "year-round", habitat: ["riparian", "forest", "parks"], diet: "insects", size: "large",
+    commonality: 0.7, weatherPrefs: { tempMin: 25, tempMax: 85, rainTolerance: 0.3, windTolerance: 0.4 },
+    description: "Large woodpecker often seen on ground eating ants. Red-shafted form common in Idaho.",
+    peakHours: [7, 8, 9, 10, 15, 16], image: wikiImg("Northern_Flicker_(8668655741).jpg"),
+    fieldMarks: ["Brown barred back", "Black crescent on breast", "Spotted belly", "Red-shafted: red under wings/tail, red moustache on male", "White rump in flight"],
+    funFact: "Flickers eat more ants than any other North American bird - up to 5,000 in one meal! Their tongue can extend 2 inches past their bill.",
+    behavior: "Unusual woodpecker that often feeds on ground. Makes loud 'wicka-wicka' call and drums on resonant surfaces.",
+    lookAlikes: ["Gilded Flicker (Arizona only)", "Red-bellied Woodpecker (different range)"],
+    nestingInfo: "Cavity nester in dead trees. 5-8 white eggs. Male does most incubating.",
+    conservationStatus: "Least Concern",
+    wingspanInches: [17, 21],
+    lengthInches: [11, 12],
+    ebirdCode: "norfli"
+  },
+  {
+    id: 5, name: "Downy Woodpecker", scientific: "Dryobates pubescens", family: "Woodpeckers",
+    presence: "year-round", habitat: ["riparian", "forest"], diet: "insects", size: "small",
+    commonality: 0.65, weatherPrefs: { tempMin: 10, tempMax: 85, rainTolerance: 0.4, windTolerance: 0.3 },
+    description: "Smallest North American woodpecker. Black and white with small bill.",
+    peakHours: [8, 9, 10, 14, 15, 16], image: wikiImg("Downy_Woodpecker_(Picoides_pubescens)_male.jpg"),
+    fieldMarks: ["Small size", "Short chisel bill", "Black and white plumage", "Male has red nape spot", "White back stripe"],
+    funFact: "Downy Woodpeckers have special feathers over their nostrils to filter out wood dust. Their skull has spongy bone to absorb shock from pecking.",
+    behavior: "Often joins mixed flocks with chickadees. Taps quietly for insects, drums loudly for territory.",
+    lookAlikes: ["Hairy Woodpecker (larger, longer bill, no spots on outer tail feathers)"],
+    nestingInfo: "Excavates cavity in dead wood. 4-5 white eggs.",
+    conservationStatus: "Least Concern",
+    wingspanInches: [10, 12],
+    lengthInches: [5.5, 6.7],
+    ebirdCode: "dowwoo"
+  },
+  {
+    id: 6, name: "Mallard", scientific: "Anas platyrhynchos", family: "Ducks",
+    presence: "year-round", habitat: ["river", "ponds"], diet: "omnivore", size: "large",
+    commonality: 0.95, weatherPrefs: { tempMin: 20, tempMax: 90, rainTolerance: 0.9, windTolerance: 0.7 },
+    description: "Classic duck. Males have iridescent green head, females mottled brown.",
+    peakHours: [6, 7, 8, 9, 16, 17, 18], image: wikiImg("Anas_platyrhynchos_male_female_quadrat.jpg"),
+    fieldMarks: ["Male: green head, yellow bill, chestnut breast, white neck ring", "Female: mottled brown, orange bill with dark center", "Both: blue speculum with white borders"],
+    funFact: "Mallards are the ancestors of most domestic ducks. They can sleep with one eye open, keeping half their brain alert for predators.",
+    behavior: "Dabbling duck - tips up to feed in shallow water. Very vocal - female gives classic 'quack'.",
+    lookAlikes: ["American Black Duck (darker overall)", "Gadwall (gray, white speculum)"],
+    nestingInfo: "Ground nest near water. 8-13 pale green eggs. Only female incubates.",
+    conservationStatus: "Least Concern",
+    wingspanInches: [32, 37],
+    lengthInches: [20, 26],
+    ebirdCode: "mallar3"
+  },
+  {
+    id: 7, name: "Canada Goose", scientific: "Branta canadensis", family: "Geese",
+    presence: "year-round", habitat: ["river", "parks", "ponds"], diet: "herbivore", size: "large",
+    commonality: 0.9, weatherPrefs: { tempMin: 15, tempMax: 90, rainTolerance: 0.8, windTolerance: 0.6 },
+    description: "Large goose with black head and neck, white chinstrap. Very common along Greenbelt.",
+    peakHours: [6, 7, 8, 16, 17, 18, 19], image: wikiImg("Canada_goose_on_Seedskadee_NWR_(27826185489).jpg"),
+    fieldMarks: ["Black head and neck", "White chinstrap", "Brown body", "Black tail and legs", "Honking call"],
+    funFact: "Canada Geese mate for life and families stay together for about a year. Goslings can walk, swim, and feed themselves within 24 hours of hatching.",
+    behavior: "Grazes on grass and aquatic plants. Flies in V-formation to save energy. Very protective of nests.",
+    lookAlikes: ["Cackling Goose (smaller, stubby bill)", "Greater White-fronted Goose (orange bill, pink legs)"],
+    nestingInfo: "Ground nest lined with down. 4-8 cream colored eggs. Both parents guard young.",
+    conservationStatus: "Least Concern",
+    wingspanInches: [50, 67],
+    lengthInches: [30, 43],
+    ebirdCode: "cangoo"
+  },
+  {
+    id: 8, name: "Great Blue Heron", scientific: "Ardea herodias", family: "Herons",
+    presence: "year-round", habitat: ["river", "ponds"], diet: "fish", size: "large",
+    commonality: 0.6, weatherPrefs: { tempMin: 30, tempMax: 95, rainTolerance: 0.6, windTolerance: 0.3 },
+    description: "Tall, elegant wading bird. Blue-gray plumage, long neck, dagger-like bill.",
+    peakHours: [6, 7, 8, 17, 18, 19], image: wikiImg("Ardea_herodias_-_Great_Blue_Heron.jpg"),
+    fieldMarks: ["Blue-gray body", "Black crown stripe", "Dagger-like yellow bill", "S-curved neck in flight", "Long legs", "Standing 4 feet tall"],
+    funFact: "Great Blue Herons can hunt day or night thanks to special rod cells in their eyes. They strike at prey in 1/60th of a second - faster than the blink of an eye.",
+    behavior: "Stands motionless hunting fish, then strikes with lightning speed. Flies with slow wingbeats, neck folded.",
+    lookAlikes: ["Great Egret (all white)", "Sandhill Crane (doesn't fold neck in flight)"],
+    nestingInfo: "Colonial nester in treetop rookeries. 3-5 pale blue eggs. Both parents feed young.",
+    conservationStatus: "Least Concern",
+    wingspanInches: [66, 79],
+    lengthInches: [38, 54],
+    ebirdCode: "grbher3"
+  },
+  {
+    id: 9, name: "Belted Kingfisher", scientific: "Megaceryle alcyon", family: "Kingfishers",
+    presence: "year-round", habitat: ["river"], diet: "fish", size: "medium",
+    commonality: 0.55, weatherPrefs: { tempMin: 35, tempMax: 85, rainTolerance: 0.5, windTolerance: 0.3 },
+    description: "Blue-gray bird with shaggy crest. Hovers over water then plunge-dives for fish.",
+    peakHours: [7, 8, 9, 10, 15, 16, 17], image: wikiImg("Belted_Kingfisher_(Megaceryle_alcyon)_RWD.jpg"),
+    fieldMarks: ["Large shaggy crest", "Blue-gray above", "White collar", "Female has rusty belly band", "Large dagger bill"],
+    funFact: "Kingfishers are one of the few bird species where females are more colorful than males. They dig burrow nests up to 8 feet long!",
+    behavior: "Perches on branches over water, hovers, then plunges headfirst. Rattling call often heard before bird is seen.",
+    lookAlikes: ["None in North America - unique shape and behavior"],
+    nestingInfo: "Burrow nester in dirt banks. 5-8 white eggs. Both parents excavate.",
+    conservationStatus: "Least Concern",
+    wingspanInches: [19, 23],
+    lengthInches: [11, 14],
+    ebirdCode: "belkin1"
+  },
+  {
+    id: 10, name: "American Crow", scientific: "Corvus brachyrhynchos", family: "Crows",
+    presence: "year-round", habitat: ["urban", "parks", "riparian"], diet: "omnivore", size: "large",
+    commonality: 0.85, weatherPrefs: { tempMin: 10, tempMax: 95, rainTolerance: 0.6, windTolerance: 0.5 },
+    description: "All-black intelligent bird. Loud 'caw-caw' call. Often in family groups.",
+    peakHours: [6, 7, 8, 9, 16, 17, 18], image: wikiImg("Corvus_brachyrhynchos_30196.jpg"),
+    fieldMarks: ["Entirely black", "Fan-shaped tail", "Sturdy bill", "Squared tail tip in flight", "Steady wingbeats"],
+    funFact: "Crows can recognize human faces and hold grudges for years. They use tools, play games, and have been observed sledding down snowy roofs for fun!",
+    behavior: "Highly social and intelligent. Caches food, uses tools, mobs predators. Forms large winter roosts.",
+    lookAlikes: ["Common Raven (much larger, wedge tail, croaking call)", "Fish Crow (smaller, nasal call)"],
+    nestingInfo: "Bulky stick nest in trees. 4-6 greenish eggs. Young may stay as helpers for 1-2 years.",
+    conservationStatus: "Least Concern",
+    wingspanInches: [33, 39],
+    lengthInches: [16, 21],
+    ebirdCode: "amecro"
+  },
+  {
+    id: 11, name: "Black-billed Magpie", scientific: "Pica hudsonia", family: "Crows",
+    presence: "year-round", habitat: ["riparian", "urban", "parks"], diet: "omnivore", size: "large",
+    commonality: 0.8, weatherPrefs: { tempMin: 5, tempMax: 90, rainTolerance: 0.5, windTolerance: 0.4 },
+    description: "Striking black and white bird with long tail. Iridescent blue-green wings.",
+    peakHours: [7, 8, 9, 15, 16, 17], image: wikiImg("Black-billed_magpie_(Pica_hudsonia).jpg"),
+    fieldMarks: ["Long tail (half of total length)", "Black and white pattern", "Iridescent blue-green wings", "White wing patches in flight", "Heavy black bill"],
+    funFact: "Magpies are one of the few animals that can recognize themselves in a mirror! They also hold 'funerals' where groups gather around dead magpies.",
+    behavior: "Walks on ground with swagger. Caches food for later. Often seen in pairs or family groups. Very vocal with harsh calls.",
+    lookAlikes: ["Yellow-billed Magpie (California only, yellow bill)"],
+    nestingInfo: "Builds large domed stick nest with mud cup inside. 6-9 olive eggs with brown marks.",
+    conservationStatus: "Least Concern",
+    wingspanInches: [22, 24],
+    lengthInches: [17, 23],
+    ebirdCode: "bkbmag1"
+  },
+  {
+    id: 12, name: "European Starling", scientific: "Sturnus vulgaris", family: "Starlings",
+    presence: "year-round", habitat: ["urban", "parks"], diet: "omnivore", size: "medium",
+    commonality: 0.85, weatherPrefs: { tempMin: 20, tempMax: 95, rainTolerance: 0.6, windTolerance: 0.5 },
+    description: "Iridescent black bird with yellow bill in breeding season. Forms large flocks.",
+    peakHours: [6, 7, 8, 16, 17, 18], image: wikiImg("Sturnus_vulgaris_2_(Marek_Szczepanek).jpg"),
+    fieldMarks: ["Iridescent purple-green plumage", "Yellow bill (breeding)", "Short tail", "Triangular wings in flight", "White speckles (winter)"],
+    funFact: "Introduced to North America in 1890 when 60 birds were released in Central Park. Now over 200 million in N. America! They can mimic over 20 species.",
+    behavior: "Forms massive murmurations of thousands of birds at dusk. Walks rather than hops. Aggressive cavity nester.",
+    lookAlikes: ["Blackbirds (longer tails, different shape)", "Grackles (longer, keeled tails)"],
+    nestingInfo: "Cavity nester in any available hole. 4-6 pale blue eggs. Often displaces native birds.",
+    conservationStatus: "Least Concern (invasive)",
+    wingspanInches: [12, 16],
+    lengthInches: [7.5, 9],
+    ebirdCode: "eursta"
+  },
+  {
+    id: 13, name: "House Sparrow", scientific: "Passer domesticus", family: "Old World Sparrows",
+    presence: "year-round", habitat: ["urban"], diet: "seeds", size: "small",
+    commonality: 0.9, weatherPrefs: { tempMin: 15, tempMax: 95, rainTolerance: 0.5, windTolerance: 0.4 },
+    description: "Chunky sparrow. Males have gray crown, black bib. Common near human habitation.",
+    peakHours: [7, 8, 9, 15, 16, 17], image: wikiImg("House_Sparrow_mar08.jpg"),
+    fieldMarks: ["Male: gray crown, black bib, chestnut nape", "Female: plain brown, buffy eyebrow", "Chunky body", "Conical bill", "Pale legs"],
+    funFact: "House Sparrows have followed humans around the world for 10,000 years! They take dust baths to clean their feathers and control parasites.",
+    behavior: "Extremely social, usually in noisy flocks. Dust bathes frequently. Nests in any cavity or crevice in buildings.",
+    lookAlikes: ["Native sparrows (more streaked, different head patterns)", "Female House Finch (more streaky)"],
+    nestingInfo: "Messy nest in any cavity. 4-6 white eggs with brown spots. Multiple broods per year.",
+    conservationStatus: "Least Concern (invasive)",
+    wingspanInches: [7.5, 10],
+    lengthInches: [5.5, 6.5],
+    ebirdCode: "houspa"
+  },
+  {
+    id: 14, name: "Song Sparrow", scientific: "Melospiza melodia", family: "Sparrows",
+    presence: "year-round", habitat: ["riparian", "parks"], diet: "omnivore", size: "small",
+    commonality: 0.75, weatherPrefs: { tempMin: 25, tempMax: 85, rainTolerance: 0.4, windTolerance: 0.3 },
+    description: "Streaky brown sparrow with dark central breast spot. Beautiful melodic song.",
+    peakHours: [6, 7, 8, 17, 18], image: wikiImg("Song_Sparrow-27527.jpg"),
+    fieldMarks: ["Central breast spot", "Heavily streaked breast", "Rounded tail pumped in flight", "Gray eyebrow", "Brown and gray streaked back"],
+    funFact: "Song Sparrows have over 20 different song variations, and neighbors often share similar dialects. Young birds learn songs from adult 'tutors'.",
+    behavior: "Sings from exposed perches. Pumps tail in flight. Forages on ground, kicking with both feet to uncover seeds.",
+    lookAlikes: ["Lincoln's Sparrow (finer streaks, buffy wash)", "Savannah Sparrow (yellow near eye, notched tail)"],
+    nestingInfo: "Cup nest low in shrubs or on ground. 3-5 greenish eggs with brown marks. 2-3 broods.",
+    conservationStatus: "Least Concern",
+    wingspanInches: [7, 9.5],
+    lengthInches: [4.7, 6.7],
+    ebirdCode: "sonspa"
+  },
+  {
+    id: 15, name: "Dark-eyed Junco", scientific: "Junco hyemalis", family: "Sparrows",
+    presence: "year-round", habitat: ["riparian", "forest", "parks"], diet: "seeds", size: "small",
+    commonality: 0.7, weatherPrefs: { tempMin: 10, tempMax: 75, rainTolerance: 0.4, windTolerance: 0.3 },
+    description: "Slate-gray bird with white belly and outer tail feathers. 'Snowbird' of the West.",
+    peakHours: [7, 8, 9, 15, 16, 17], image: wikiImg("Dark-eyed_Junco,_Oregon,_male.jpg"),
+    fieldMarks: ["Slate-gray or brown hood", "White belly", "White outer tail feathers (flash in flight)", "Pink bill", "Oregon form has brown back, black hood"],
+    funFact: "Juncos are called 'snowbirds' because they arrive in lowlands with winter weather. There are several distinct subspecies that look quite different!",
+    behavior: "Forages on ground in flocks, often with sparrows. Flashes white tail feathers when flushed. Gives sharp 'chip' notes.",
+    lookAlikes: ["Black Phoebe (different shape, no white tail edges)", "Female Brown-headed Cowbird (streaked, no white tail)"],
+    nestingInfo: "Cup nest on ground under vegetation. 3-5 pale eggs with brown spots.",
+    conservationStatus: "Least Concern",
+    wingspanInches: [7, 10],
+    lengthInches: [5.5, 6.5],
+    ebirdCode: "daejun"
+  },
+  {
+    id: 16, name: "Red-tailed Hawk", scientific: "Buteo jamaicensis", family: "Hawks",
+    presence: "year-round", habitat: ["riparian", "open"], diet: "carnivore", size: "large",
+    commonality: 0.6, weatherPrefs: { tempMin: 20, tempMax: 95, rainTolerance: 0.3, windTolerance: 0.7 },
+    description: "Large soaring hawk with rust-red tail. Often perched on poles along Greenbelt.",
+    peakHours: [9, 10, 11, 12, 13, 14, 15], image: wikiImg("Red-tailed_Hawk_Buteo_jamaicensis_Full_Body_1880px.jpg"),
+    fieldMarks: ["Brick-red tail (adult)", "Dark belly band", "Pale chest", "Dark patagial marks on underwing", "Heavy body, broad wings"],
+    funFact: "The Red-tailed Hawk's scream is the 'default' hawk sound used in movies - even for Bald Eagles! They can spot a mouse from 100 feet up.",
+    behavior: "Soars in wide circles on thermals. Perches prominently on poles and trees. Hunts by diving onto prey from above.",
+    lookAlikes: ["Swainson's Hawk (dark flight feathers)", "Ferruginous Hawk (white tail, rusty legs)", "Rough-legged Hawk (black belly, white tail base)"],
+    nestingInfo: "Large stick nest in tall trees or cliffs. 2-3 white eggs with brown blotches.",
+    conservationStatus: "Least Concern",
+    wingspanInches: [45, 52],
+    lengthInches: [18, 26],
+    ebirdCode: "rethaw"
+  },
+  {
+    id: 17, name: "Cooper's Hawk", scientific: "Accipiter cooperii", family: "Hawks",
+    presence: "year-round", habitat: ["riparian", "urban"], diet: "carnivore", size: "medium",
+    commonality: 0.45, weatherPrefs: { tempMin: 25, tempMax: 90, rainTolerance: 0.3, windTolerance: 0.4 },
+    description: "Agile hawk that hunts songbirds in wooded areas. Long tail, rounded wings.",
+    peakHours: [7, 8, 9, 16, 17], image: wikiImg("Coopers_hawk.jpg"),
+    fieldMarks: ["Long rounded tail with white tip", "Blue-gray back (adult)", "Rusty barred chest (adult)", "Red eyes (adult)", "Flap-flap-glide flight pattern"],
+    funFact: "Cooper's Hawks have adapted brilliantly to suburban life - bird feeders are like fast food restaurants for them! They're the most common backyard hawk.",
+    behavior: "Ambush predator, uses cover to surprise prey. Very agile in dense vegetation. Will stake out bird feeders.",
+    lookAlikes: ["Sharp-shinned Hawk (smaller, squared tail tip, thinner legs)", "Northern Goshawk (larger, white eyebrow)"],
+    nestingInfo: "Stick nest in dense trees. 3-5 pale blue eggs. Male does most hunting for family.",
+    conservationStatus: "Least Concern",
+    wingspanInches: [24, 35],
+    lengthInches: [14, 20],
+    ebirdCode: "coohaw"
+  },
+  {
+    id: 18, name: "Sharp-shinned Hawk", scientific: "Accipiter striatus", family: "Hawks",
+    presence: "year-round", habitat: ["riparian", "forest"], diet: "carnivore", size: "small",
+    commonality: 0.35, weatherPrefs: { tempMin: 20, tempMax: 85, rainTolerance: 0.3, windTolerance: 0.3 },
+    description: "Small, fierce hawk. Smaller version of Cooper's Hawk. Hunts small birds.",
+    peakHours: [7, 8, 9, 16, 17], image: wikiImg("Sharp-shinned_Hawk_(Accipiter_striatus)_RWD.jpg"),
+    fieldMarks: ["Small size (jay-sized)", "Square-tipped tail", "Thin stick-like legs", "Blue-gray back (adult)", "Heavy barring on chest"],
+    funFact: "Sharp-shins are the smallest hawks in North America. Females can be twice the weight of males - the biggest size difference of any hawk!",
+    behavior: "Darts through dense forest chasing small birds. Flight is quick flaps then glide. Very secretive when nesting.",
+    lookAlikes: ["Cooper's Hawk (larger, rounded tail tip, bigger head)", "American Kestrel (different shape, hovers)"],
+    nestingInfo: "Well-hidden stick nest in dense conifers. 4-5 white eggs with brown marks.",
+    conservationStatus: "Least Concern",
+    wingspanInches: [17, 22],
+    lengthInches: [9, 13],
+    ebirdCode: "shshaw"
+  },
+  {
+    id: 19, name: "American Kestrel", scientific: "Falco sparverius", family: "Falcons",
+    presence: "year-round", habitat: ["open", "urban", "riparian"], diet: "carnivore", size: "small",
+    commonality: 0.5, weatherPrefs: { tempMin: 25, tempMax: 95, rainTolerance: 0.2, windTolerance: 0.5 },
+    description: "Colorful small falcon. Males have blue-gray wings, rusty back. Hovers when hunting.",
+    peakHours: [8, 9, 10, 15, 16, 17], image: wikiImg("American_Kestrel_(Falco_sparverius).jpg"),
+    fieldMarks: ["Two vertical face stripes", "Rusty back and tail", "Male: blue-gray wings", "Female: rusty wings with bars", "Small size, pointed wings"],
+    funFact: "Kestrels have UV vision and can see the urine trails of voles, which glow in UV light! They're the only falcon that regularly hovers.",
+    behavior: "Hovers in place hunting insects and mice. Perches on wires bobbing tail. Nests in cavities including nest boxes.",
+    lookAlikes: ["Merlin (no face stripes, darker)", "Sharp-shinned Hawk (different flight style, no hovering)"],
+    nestingInfo: "Cavity nester - uses old woodpecker holes or nest boxes. 4-5 white eggs with brown marks.",
+    conservationStatus: "Least Concern (declining)",
+    wingspanInches: [20, 24],
+    lengthInches: [8.7, 12],
+    ebirdCode: "amekes"
+  },
+  {
+    id: 20, name: "Mourning Dove", scientific: "Zenaida macroura", family: "Doves",
+    presence: "year-round", habitat: ["urban", "parks", "riparian"], diet: "seeds", size: "medium",
+    commonality: 0.8, weatherPrefs: { tempMin: 30, tempMax: 100, rainTolerance: 0.3, windTolerance: 0.4 },
+    description: "Slender dove with long pointed tail. Soft, mournful cooing call.",
+    peakHours: [6, 7, 8, 17, 18, 19], image: wikiImg("Mourning_Dove_2006.jpg"),
+    fieldMarks: ["Long pointed tail with white edges", "Small head", "Black spots on wings", "Pinkish breast", "Blue eye ring"],
+    funFact: "Mourning Doves can drink water by sucking it up like a straw - most birds have to tip their heads back! They may raise up to 6 broods per year.",
+    behavior: "Fast direct flight with whistling wings. Feeds on ground. Cooing song sounds sad, hence the name.",
+    lookAlikes: ["Eurasian Collared-Dove (larger, square tail, black collar)", "White-winged Dove (white wing patches)"],
+    nestingInfo: "Flimsy stick platform nest. 2 white eggs. Parents feed 'crop milk' to young.",
+    conservationStatus: "Least Concern",
+    wingspanInches: [15, 18],
+    lengthInches: [9, 13],
+    ebirdCode: "moudov"
+  },
+  {
+    id: 21, name: "Rock Pigeon", scientific: "Columba livia", family: "Doves",
+    presence: "year-round", habitat: ["urban"], diet: "seeds", size: "medium",
+    commonality: 0.85, weatherPrefs: { tempMin: 20, tempMax: 100, rainTolerance: 0.5, windTolerance: 0.5 },
+    description: "Common city pigeon in various colors. Gray with iridescent neck feathers.",
+    peakHours: [7, 8, 9, 10, 15, 16, 17], image: wikiImg("Rock_dove_-_Columba_livia.jpg"),
+    fieldMarks: ["Variable plumage from white to black", "Iridescent green and purple neck", "Orange or red eyes", "Pink legs and feet", "Two dark wing bars on wild-type"],
+    funFact: "Rock Pigeons were the first domesticated bird, over 5,000 years ago! They were used to carry messages in ancient Mesopotamia and later famously served as war messengers.",
+    behavior: "Gregarious, often in large flocks. Bobs head while walking. Strong direct flight. Returns to same roost sites. Ground feeder that pecks rapidly.",
+    lookAlikes: ["Band-tailed Pigeon (yellow bill tip, gray tail band)", "Eurasian Collared-Dove (pale, black collar)"],
+    nestingInfo: "Nests on ledges of buildings, bridges, cliffs. Flimsy stick nest. 2 white eggs. Breeds year-round in mild climates.",
+    conservationStatus: "Least Concern",
+    wingspanInches: [20, 26],
+    lengthInches: [11, 14],
+    ebirdCode: "rocpig"
+  },
+  {
+    id: 22, name: "Eurasian Collared-Dove", scientific: "Streptopelia decaocto", family: "Doves",
+    presence: "year-round", habitat: ["urban", "parks"], diet: "seeds", size: "medium",
+    commonality: 0.7, weatherPrefs: { tempMin: 25, tempMax: 95, rainTolerance: 0.4, windTolerance: 0.4 },
+    description: "Pale dove with black collar on neck. Three-syllable cooing call.",
+    peakHours: [6, 7, 8, 17, 18], image: wikiImg("Eurasian_collared-dove_(Streptopelia_decaocto).jpg"),
+    fieldMarks: ["Black half-collar on back of neck", "Pale grayish-buff overall", "Square-tipped tail with white corners", "Dark primaries contrast with pale body", "Red eyes"],
+    funFact: "This species spread explosively across North America after being introduced to the Bahamas in the 1970s. It reached Idaho by the late 1990s and is still expanding its range!",
+    behavior: "Often perches on wires and rooftops. Distinctive three-note cooing 'coo-COO-coo'. Less gregarious than Rock Pigeon. Visits feeders for seeds.",
+    lookAlikes: ["Mourning Dove (smaller, pointed tail, no collar)", "Ringed Turtle-Dove (domestic, similar but paler)"],
+    nestingInfo: "Flimsy stick platform in trees or on structures. 2 white eggs. May raise 3-6 broods per year.",
+    conservationStatus: "Least Concern",
+    wingspanInches: [18, 22],
+    lengthInches: [11.5, 13],
+    ebirdCode: "eucdov"
+  },
+  {
+    id: 23, name: "Ring-billed Gull", scientific: "Larus delawarensis", family: "Gulls",
+    presence: "year-round", habitat: ["river", "urban", "parks"], diet: "omnivore", size: "medium",
+    commonality: 0.65, weatherPrefs: { tempMin: 25, tempMax: 90, rainTolerance: 0.7, windTolerance: 0.6 },
+    description: "Common gull with yellow bill and black ring. Often in parking lots.",
+    peakHours: [8, 9, 10, 11, 14, 15, 16], image: wikiImg("Larus_delawarensis_-_Ring-billed_Gull.jpg"),
+    fieldMarks: ["Yellow bill with distinct black ring", "Pale gray back", "Yellow legs", "White head (winter: brown streaking)", "Black wingtips with white spots"],
+    funFact: "Ring-billed Gulls were nearly wiped out in the early 1900s due to hunting for feathers and eggs. Thanks to protection laws, they made an incredible comeback and are now one of the most abundant gulls in North America!",
+    behavior: "Highly adaptable - thrives in urban areas, parking lots, and fast food restaurants. Walks on land frequently. Often follows plows for insects. Loafs on flat rooftops.",
+    lookAlikes: ["California Gull (red and black bill spot, darker mantle)", "Herring Gull (larger, pink legs, red bill spot)"],
+    nestingInfo: "Colonial nester on islands. Nest is a scrape with grass and debris. 2-4 spotted eggs.",
+    conservationStatus: "Least Concern",
+    wingspanInches: [41, 46],
+    lengthInches: [17, 21],
+    ebirdCode: "ribgul"
+  },
+  {
+    id: 24, name: "California Quail", scientific: "Callipepla californica", family: "Quail",
+    presence: "year-round", habitat: ["riparian", "parks"], diet: "seeds", size: "medium",
+    commonality: 0.5, weatherPrefs: { tempMin: 25, tempMax: 95, rainTolerance: 0.2, windTolerance: 0.3 },
+    description: "Plump ground bird with forward-curving head plume. Runs in coveys.",
+    peakHours: [6, 7, 8, 17, 18], image: wikiImg("Callipepla_californica_-San_Luis_Obispo,_California,_USA_-male-8.jpg"),
+    fieldMarks: ["Forward-drooping black head plume", "Scaled belly pattern", "Chestnut sides with white streaks", "Blue-gray chest", "Male has black face with white stripes"],
+    funFact: "California Quail chicks can run and feed themselves within hours of hatching! Coveys often have a sentinel bird that watches for danger while others feed.",
+    behavior: "Travels in coveys of 10-200 birds. Prefers running to flying. Roosts in dense shrubs. Loud 'chi-CA-go' call. Dust bathes frequently.",
+    lookAlikes: ["Gambel's Quail (plain belly, topknot curves forward)", "Mountain Quail (long straight plume, chestnut throat)"],
+    nestingInfo: "Ground nester, hidden under shrubs. 12-16 cream eggs with brown spots. Female incubates while male guards.",
+    conservationStatus: "Least Concern",
+    wingspanInches: [12, 14],
+    lengthInches: [9, 11],
+    ebirdCode: "calqua"
+  },
+  {
+    id: 25, name: "White-breasted Nuthatch", scientific: "Sitta carolinensis", family: "Nuthatches",
+    presence: "year-round", habitat: ["riparian", "forest"], diet: "insects", size: "small",
+    commonality: 0.55, weatherPrefs: { tempMin: 10, tempMax: 85, rainTolerance: 0.4, windTolerance: 0.3 },
+    description: "Blue-gray bird that walks headfirst down tree trunks. Nasal 'yank-yank' call.",
+    peakHours: [7, 8, 9, 14, 15, 16], image: wikiImg("White-breasted_Nuthatch.jpg"),
+    fieldMarks: ["White face and underparts", "Blue-gray back", "Black cap (gray on female)", "Short tail", "Long pointed bill"],
+    funFact: "Nuthatches smear crushed insects around their nest entrance - scientists believe the odor may deter squirrels and other predators from entering!",
+    behavior: "Climbs down tree trunks headfirst - unique among birds. Wedges seeds into bark crevices to hammer open. Often with chickadee flocks. Nasal 'yank-yank' call.",
+    lookAlikes: ["Red-breasted Nuthatch (rusty underparts, black eyeline)", "Pygmy Nuthatch (brown cap, smaller)"],
+    nestingInfo: "Cavity nester in natural holes or old woodpecker holes. 5-9 white eggs with brown spots. Sweeps entrance with crushed insects.",
+    conservationStatus: "Least Concern",
+    wingspanInches: [7.9, 10.6],
+    lengthInches: [5, 5.5],
+    ebirdCode: "whbnut"
+  },
+  {
+    id: 26, name: "Red-breasted Nuthatch", scientific: "Sitta canadensis", family: "Nuthatches",
+    presence: "year-round", habitat: ["forest", "riparian"], diet: "insects", size: "small",
+    commonality: 0.45, weatherPrefs: { tempMin: 5, tempMax: 80, rainTolerance: 0.4, windTolerance: 0.3 },
+    description: "Small nuthatch with rusty underparts and bold eyeline. Tiny 'tin horn' call.",
+    peakHours: [7, 8, 9, 14, 15, 16], image: wikiImg("Red-breasted_Nuthatch_(Sitta_canadensis).jpg"),
+    fieldMarks: ["Rusty-orange underparts", "Bold black eyeline", "White eyebrow stripe", "Blue-gray back", "Black cap"],
+    funFact: "Red-breasted Nuthatches apply sticky conifer resin around their nest entrance, which may deter predators and competitors. They avoid the resin by diving straight into the hole!",
+    behavior: "Climbs down trees headfirst like other nuthatches. Prefers coniferous forests. High-pitched nasal 'yank' calls sound like a tiny tin horn. Irruptive - moves south in years of cone crop failure.",
+    lookAlikes: ["White-breasted Nuthatch (white underparts, no eyeline)", "Pygmy Nuthatch (brown cap, pale underparts)"],
+    nestingInfo: "Excavates own cavity in dead wood. Applies conifer resin around entrance. 5-8 white eggs with reddish spots.",
+    conservationStatus: "Least Concern",
+    wingspanInches: [7, 8],
+    lengthInches: [4.3, 4.5],
+    ebirdCode: "rebnut"
+  },
+  {
+    id: 27, name: "Hairy Woodpecker", scientific: "Dryobates villosus", family: "Woodpeckers",
+    presence: "year-round", habitat: ["forest", "riparian"], diet: "insects", size: "medium",
+    commonality: 0.4, weatherPrefs: { tempMin: 10, tempMax: 85, rainTolerance: 0.4, windTolerance: 0.3 },
+    description: "Larger version of Downy Woodpecker with longer bill.",
+    peakHours: [8, 9, 10, 14, 15, 16], image: wikiImg("Hairy_Woodpecker-27527.jpg"),
+    fieldMarks: ["Long chisel-like bill (nearly head length)", "Black and white pattern", "Clean white back stripe", "Male has red nape patch", "No black bars on outer tail feathers"],
+    funFact: "Hairy Woodpeckers often follow Pileated Woodpeckers and feed on insects exposed by the larger bird's excavations - a behavior called 'kleptoparasitism'!",
+    behavior: "Drums loudly on dead branches to establish territory. Excavates deep into wood for beetle larvae. Often visits suet feeders. Sharp 'peek!' call and rattling whinny.",
+    lookAlikes: ["Downy Woodpecker (smaller, shorter bill, barred outer tail)", "American Three-toed Woodpecker (barred back)"],
+    nestingInfo: "Excavates cavity in dead tree. 3-6 white eggs. Both parents incubate and feed young.",
+    conservationStatus: "Least Concern",
+    wingspanInches: [13, 17],
+    lengthInches: [7, 10],
+    ebirdCode: "haiwoo"
+  },
+  {
+    id: 28, name: "American Goldfinch", scientific: "Spinus tristis", family: "Finches",
+    presence: "year-round", habitat: ["riparian", "parks"], diet: "seeds", size: "small",
+    commonality: 0.7, weatherPrefs: { tempMin: 30, tempMax: 90, rainTolerance: 0.3, windTolerance: 0.3 },
+    description: "Bright yellow male in summer, olive in winter. Bouncy flight with 'po-ta-to-chip' call.",
+    peakHours: [7, 8, 9, 15, 16, 17], image: wikiImg("Carduelis_tristis_-Michigan,_USA_-male-8.jpg"),
+    fieldMarks: ["Breeding male: bright yellow with black cap", "Winter: olive-brown overall", "Black wings with white bars", "Conical pink bill", "White undertail coverts"],
+    funFact: "American Goldfinches are the only finch that molts twice a year! They also nest very late (July-August) to coincide with thistle and other seed availability.",
+    behavior: "Bouncy, undulating flight with 'po-ta-to-chip' call on each bound. Clings to seedheads, often upside-down. Highly gregarious. Loves nyjer/thistle feeders.",
+    lookAlikes: ["Lesser Goldfinch (darker back, different call)", "Yellow Warbler (no black cap, different bill shape)"],
+    nestingInfo: "Late nester (July-September). Neat cup of plant fibers lined with thistle down. 4-6 pale blue eggs. Female incubates.",
+    conservationStatus: "Least Concern",
+    wingspanInches: [7.5, 8.7],
+    lengthInches: [4.3, 5],
+    ebirdCode: "amegfi"
+  },
+  {
+    id: 29, name: "Lesser Goldfinch", scientific: "Spinus psaltria", family: "Finches",
+    presence: "year-round", habitat: ["riparian", "parks"], diet: "seeds", size: "small",
+    commonality: 0.5, weatherPrefs: { tempMin: 35, tempMax: 95, rainTolerance: 0.3, windTolerance: 0.3 },
+    description: "Tiny finch. Males have black cap, yellow underparts, green or black back.",
+    peakHours: [7, 8, 9, 15, 16, 17], image: wikiImg("Lesser_Goldfinch_(Spinus_psaltria)_male.jpg"),
+    fieldMarks: ["Male: black cap, yellow underparts", "Back varies: green in West, black in Texas", "White wing patches visible in flight", "Female: olive-green overall", "Small conical bill"],
+    funFact: "Lesser Goldfinches are excellent mimics and incorporate the calls of many other species into their complex songs - sometimes over 50 different species!",
+    behavior: "Often in mixed flocks with American Goldfinches. Feeds on seeds while hanging from seedheads. High-pitched 'tee-yee' call. Complex musical song includes mimicry.",
+    lookAlikes: ["American Goldfinch (larger, different back pattern)", "Lawrence's Goldfinch (gray body, yellow wing bars)"],
+    nestingInfo: "Nest is a neat cup in shrubs or trees. 4-5 pale blue-white eggs. Female builds nest and incubates.",
+    conservationStatus: "Least Concern",
+    wingspanInches: [6, 8],
+    lengthInches: [3.5, 4.3],
+    ebirdCode: "lesgol"
+  },
+  {
+    id: 30, name: "Spotted Towhee", scientific: "Pipilo maculatus", family: "Sparrows",
+    presence: "year-round", habitat: ["riparian", "parks"], diet: "omnivore", size: "medium",
+    commonality: 0.6, weatherPrefs: { tempMin: 30, tempMax: 90, rainTolerance: 0.3, windTolerance: 0.3 },
+    description: "Large sparrow with black hood, rufous sides, white spots on wings.",
+    peakHours: [6, 7, 8, 17, 18], image: wikiImg("Spotted_Towhee_(Pipilo_maculatus).jpg"),
+    fieldMarks: ["Black hood and back (male) or brown (female)", "Rufous-orange sides", "White belly", "White spots on black wings", "Red eyes"],
+    funFact: "Spotted Towhees scratch for food with a distinctive double-scratch motion, jumping forward and raking both feet backward simultaneously - you often hear them before you see them!",
+    behavior: "Forages on ground by double-scratching in leaf litter. Secretive but loud. 'Drink-your-teeeea' song and sharp 'mew' call. Often in dense brush.",
+    lookAlikes: ["Eastern Towhee (no white spots on back)", "Dark-eyed Junco (smaller, different coloration)"],
+    nestingInfo: "Ground or low shrub nester. Nest cup of leaves and grass. 3-5 spotted eggs. Female incubates.",
+    conservationStatus: "Least Concern",
+    wingspanInches: [10.5, 11],
+    lengthInches: [6.7, 8.3],
+    ebirdCode: "spotow"
+  },
+
+  // Winter visitors
+  { id: 31, name: "Bald Eagle", scientific: "Haliaeetus leucocephalus", family: "Eagles", presence: "winter", habitat: ["river"], diet: "fish", size: "large", commonality: 0.4, weatherPrefs: { tempMin: 15, tempMax: 50, rainTolerance: 0.4, windTolerance: 0.5 }, description: "Majestic eagle with white head and tail. Seen along river hunting fish.", peakHours: [8, 9, 10, 14, 15, 16], months: [11, 12, 1, 2, 3], image: wikiImg("Bald_Eagle_Portrait.jpg") },
+  { id: 32, name: "Rough-legged Hawk", scientific: "Buteo lagopus", family: "Hawks", presence: "winter", habitat: ["open"], diet: "carnivore", size: "large", commonality: 0.35, weatherPrefs: { tempMin: 10, tempMax: 45, rainTolerance: 0.4, windTolerance: 0.6 }, description: "Arctic hawk that winters in open country. Hovers while hunting rodents.", peakHours: [9, 10, 11, 14, 15], months: [11, 12, 1, 2, 3], image: wikiImg("Buteo_lagopus_1_(Bohuš_Číčel).jpg") },
+  { id: 33, name: "Trumpeter Swan", scientific: "Cygnus buccinator", family: "Swans", presence: "winter", habitat: ["river", "ponds"], diet: "herbivore", size: "large", commonality: 0.25, weatherPrefs: { tempMin: 20, tempMax: 50, rainTolerance: 0.7, windTolerance: 0.5 }, description: "Largest native waterfowl. All white with black bill. Deep honking call.", peakHours: [7, 8, 9, 15, 16, 17], months: [11, 12, 1, 2, 3], image: wikiImg("Trumpeter_Swan_Sasata.jpg") },
+  { id: 34, name: "Common Goldeneye", scientific: "Bucephala clangula", family: "Ducks", presence: "winter", habitat: ["river"], diet: "omnivore", size: "medium", commonality: 0.55, weatherPrefs: { tempMin: 20, tempMax: 50, rainTolerance: 0.8, windTolerance: 0.6 }, description: "Diving duck. Male has white cheek patch, iridescent green head.", peakHours: [7, 8, 9, 15, 16, 17], months: [11, 12, 1, 2, 3, 4], image: wikiImg("Common_Goldeneye_(Bucephala_clangula)_(13667418885).jpg") },
+  { id: 35, name: "Barrow's Goldeneye", scientific: "Bucephala islandica", family: "Ducks", presence: "winter", habitat: ["river"], diet: "omnivore", size: "medium", commonality: 0.4, weatherPrefs: { tempMin: 20, tempMax: 50, rainTolerance: 0.8, windTolerance: 0.6 }, description: "Similar to Common Goldeneye. Male has crescent-shaped white face patch.", peakHours: [7, 8, 9, 15, 16, 17], months: [11, 12, 1, 2, 3, 4], image: wikiImg("Bucephala_islandica_-_drake.jpg") },
+  { id: 36, name: "Bufflehead", scientific: "Bucephala albeola", family: "Ducks", presence: "winter", habitat: ["river", "ponds"], diet: "omnivore", size: "small", commonality: 0.6, weatherPrefs: { tempMin: 25, tempMax: 55, rainTolerance: 0.8, windTolerance: 0.5 }, description: "Tiny diving duck. Male has large white patch on back of puffy head.", peakHours: [7, 8, 9, 15, 16, 17], months: [10, 11, 12, 1, 2, 3, 4], image: wikiImg("Bufflehead_male.jpg") },
+  { id: 37, name: "Common Merganser", scientific: "Mergus merganser", family: "Ducks", presence: "winter", habitat: ["river"], diet: "fish", size: "large", commonality: 0.5, weatherPrefs: { tempMin: 25, tempMax: 55, rainTolerance: 0.8, windTolerance: 0.5 }, description: "Large diving duck with thin serrated bill for catching fish. Male has green head.", peakHours: [7, 8, 9, 15, 16], months: [10, 11, 12, 1, 2, 3, 4], image: wikiImg("Mergus_merganser_-Sandwell_Valley,_West_Midlands,_England_-male-8.jpg") },
+  { id: 38, name: "Hooded Merganser", scientific: "Lophodytes cucullatus", family: "Ducks", presence: "winter", habitat: ["river", "ponds"], diet: "fish", size: "small", commonality: 0.35, weatherPrefs: { tempMin: 30, tempMax: 55, rainTolerance: 0.7, windTolerance: 0.4 }, description: "Small diving duck. Male has striking fan-shaped white crest.", peakHours: [7, 8, 9, 15, 16, 17], months: [10, 11, 12, 1, 2, 3, 4], image: wikiImg("Hooded_Merganser_male.jpg") },
+  { id: 39, name: "Horned Grebe", scientific: "Podiceps auritus", family: "Grebes", presence: "winter", habitat: ["river", "ponds"], diet: "fish", size: "small", commonality: 0.4, weatherPrefs: { tempMin: 30, tempMax: 55, rainTolerance: 0.8, windTolerance: 0.4 }, description: "Small diving bird. Winter plumage is gray and white. Red eyes.", peakHours: [7, 8, 9, 14, 15, 16], months: [10, 11, 12, 1, 2, 3, 4], image: wikiImg("Horned_Grebe_(Podiceps_auritus).jpg") },
+  { id: 40, name: "Pied-billed Grebe", scientific: "Podilymbus podiceps", family: "Grebes", presence: "year-round", habitat: ["ponds", "river"], diet: "fish", size: "small", commonality: 0.5, weatherPrefs: { tempMin: 30, tempMax: 85, rainTolerance: 0.7, windTolerance: 0.4 }, description: "Chunky diving bird with chicken-like bill. Can sink slowly like a submarine.", peakHours: [7, 8, 9, 15, 16, 17], image: wikiImg("Pied-billed_Grebe_(Podilymbus_podiceps).jpg") },
+  { id: 41, name: "American Coot", scientific: "Fulica americana", family: "Rails", presence: "year-round", habitat: ["ponds", "river"], diet: "omnivore", size: "medium", commonality: 0.65, weatherPrefs: { tempMin: 30, tempMax: 90, rainTolerance: 0.7, windTolerance: 0.5 }, description: "Dark gray bird with white bill. Bobs head while swimming. Lobed toes.", peakHours: [7, 8, 9, 15, 16, 17], image: wikiImg("American_coot_in_La_Paz.jpg") },
+  { id: 42, name: "Golden-crowned Kinglet", scientific: "Regulus satrapa", family: "Kinglets", presence: "winter", habitat: ["forest", "riparian"], diet: "insects", size: "tiny", commonality: 0.45, weatherPrefs: { tempMin: 15, tempMax: 50, rainTolerance: 0.4, windTolerance: 0.2 }, description: "Tiny bird with golden crown stripe. Very active, often in conifers.", peakHours: [8, 9, 10, 14, 15, 16], months: [10, 11, 12, 1, 2, 3], image: wikiImg("Golden-crowned_Kinglet.jpg") },
+  { id: 43, name: "Ruby-crowned Kinglet", scientific: "Corthylio calendula", family: "Kinglets", presence: "winter", habitat: ["forest", "riparian"], diet: "insects", size: "tiny", commonality: 0.5, weatherPrefs: { tempMin: 20, tempMax: 55, rainTolerance: 0.4, windTolerance: 0.2 }, description: "Tiny hyperactive bird. Male's red crown usually hidden. Bold eye ring.", peakHours: [8, 9, 10, 14, 15, 16], months: [9, 10, 11, 12, 1, 2, 3, 4], image: wikiImg("Ruby-crowned_Kinglet.jpg") },
+  { id: 44, name: "Mountain Chickadee", scientific: "Poecile gambeli", family: "Chickadees", presence: "winter", habitat: ["forest", "riparian"], diet: "omnivore", size: "small", commonality: 0.4, weatherPrefs: { tempMin: 5, tempMax: 50, rainTolerance: 0.4, windTolerance: 0.3 }, description: "Like Black-capped but with white eyebrow. Descends from mountains in winter.", peakHours: [7, 8, 9, 14, 15, 16], months: [10, 11, 12, 1, 2, 3], image: wikiImg("Mountain_Chickadee_(31746606970).jpg") },
+  { id: 45, name: "Townsend's Solitaire", scientific: "Myadestes townsendi", family: "Thrushes", presence: "winter", habitat: ["forest", "riparian"], diet: "berries", size: "medium", commonality: 0.35, weatherPrefs: { tempMin: 20, tempMax: 55, rainTolerance: 0.3, windTolerance: 0.3 }, description: "Slender gray bird with white eye ring and wing patches. Defends berry territories.", peakHours: [8, 9, 10, 15, 16], months: [10, 11, 12, 1, 2, 3], image: wikiImg("Townsend's_Solitaire_(Myadestes_townsendi).jpg") },
+  { id: 46, name: "Cedar Waxwing", scientific: "Bombycilla cedrorum", family: "Waxwings", presence: "year-round", habitat: ["riparian", "parks"], diet: "berries", size: "medium", commonality: 0.6, weatherPrefs: { tempMin: 25, tempMax: 85, rainTolerance: 0.4, windTolerance: 0.4 }, description: "Sleek crested bird with yellow-tipped tail. Travels in flocks eating berries.", peakHours: [8, 9, 10, 15, 16, 17], image: wikiImg("Cedar_Waxwing_-_Bombycilla_cedrorum.jpg") },
+  { id: 47, name: "Bohemian Waxwing", scientific: "Bombycilla garrulus", family: "Waxwings", presence: "winter", habitat: ["riparian", "urban"], diet: "berries", size: "medium", commonality: 0.3, weatherPrefs: { tempMin: 10, tempMax: 45, rainTolerance: 0.4, windTolerance: 0.4 }, description: "Larger than Cedar Waxwing with rusty undertail. Erratic winter visitor in flocks.", peakHours: [8, 9, 10, 14, 15, 16], months: [11, 12, 1, 2, 3], image: wikiImg("Bombycilla_garrulus_(Marek_Szczepanek).jpg") },
+  { id: 48, name: "White-crowned Sparrow", scientific: "Zonotrichia leucophrys", family: "Sparrows", presence: "winter", habitat: ["riparian", "parks"], diet: "seeds", size: "small", commonality: 0.55, weatherPrefs: { tempMin: 25, tempMax: 60, rainTolerance: 0.4, windTolerance: 0.3 }, description: "Handsome sparrow with bold black and white head stripes.", peakHours: [7, 8, 9, 16, 17], months: [9, 10, 11, 12, 1, 2, 3, 4], image: wikiImg("White-crowned_Sparrow.jpg") },
+  { id: 49, name: "White-throated Sparrow", scientific: "Zonotrichia albicollis", family: "Sparrows", presence: "winter", habitat: ["riparian"], diet: "seeds", size: "small", commonality: 0.25, weatherPrefs: { tempMin: 25, tempMax: 55, rainTolerance: 0.4, windTolerance: 0.3 }, description: "Distinctive sparrow with white throat and yellow near eye. Rare in Idaho.", peakHours: [7, 8, 9, 16, 17], months: [10, 11, 12, 1, 2, 3], image: wikiImg("White-throated_Sparrow_in_GWC_(8737).jpg") },
+  { id: 50, name: "Northern Shrike", scientific: "Lanius borealis", family: "Shrikes", presence: "winter", habitat: ["open", "riparian"], diet: "carnivore", size: "medium", commonality: 0.2, weatherPrefs: { tempMin: 10, tempMax: 45, rainTolerance: 0.3, windTolerance: 0.4 }, description: "Predatory songbird with hooked bill. Impales prey on thorns. Black mask.", peakHours: [8, 9, 10, 14, 15, 16], months: [10, 11, 12, 1, 2, 3], image: wikiImg("Northern_Shrike_1.jpg") },
+  {
+    id: 51, name: "Pacific Wren", scientific: "Troglodytes pacificus", family: "Wrens",
+    presence: "winter", habitat: ["riparian", "forest"], diet: "insects", size: "tiny",
+    commonality: 0.3, weatherPrefs: { tempMin: 30, tempMax: 55, rainTolerance: 0.5, windTolerance: 0.2 },
+    description: "Tiny dark wren with short upturned tail. Mouse-like behavior in underbrush.",
+    peakHours: [7, 8, 9, 15, 16], months: [10, 11, 12, 1, 2, 3], image: wikiImg("Pacific_Wren_(31313976954).jpg"),
+    fieldMarks: ["Very small, round body", "Short upturned tail", "Dark brown overall with fine barring", "Pale eyebrow stripe", "Thin slightly curved bill"],
+    funFact: "Pacific Wrens have one of the longest and most complex songs of any North American bird - lasting up to 10 seconds with over 300 notes per song!",
+    behavior: "Creeps mouse-like through dense underbrush and fallen logs. Bobs and dips constantly. Males sing elaborate songs even in winter.",
+    lookAlikes: ["House Wren (paler, longer tail, different habitat)", "Winter Wren (Eastern species, nearly identical)", "Marsh Wren (striped back, wetland habitat)"],
+    nestingInfo: "Builds domed nest with side entrance in root tangles or crevices. Male builds multiple dummy nests. 5-8 white eggs with brown spots.",
+    conservationStatus: "Least Concern",
+    wingspanInches: [4.7, 6.3],
+    lengthInches: [3.1, 4.7],
+    ebirdCode: "pacwre"
+  },
+
+  // Summer visitors
+  {
+    id: 52, name: "Bullock's Oriole", scientific: "Icterus bullockii", family: "Blackbirds",
+    presence: "summer", habitat: ["riparian"], diet: "omnivore", size: "medium",
+    commonality: 0.55, weatherPrefs: { tempMin: 55, tempMax: 100, rainTolerance: 0.3, windTolerance: 0.4 },
+    description: "Brilliant orange and black bird. Weaves hanging nest. Beautiful song.",
+    peakHours: [6, 7, 8, 17, 18], months: [5, 6, 7, 8], image: wikiImg("Bullock's_Oriole_(Icterus_bullockii).jpg"),
+    fieldMarks: ["Male: bright orange face and underparts", "Black eye line and throat", "Large white wing patch", "Female: yellowish head and breast", "Pointed bill"],
+    funFact: "Bullock's Orioles weave intricate hanging pouch nests that can take up to 15 days to build, using plant fibers, hair, and even fishing line!",
+    behavior: "Forages high in cottonwoods for insects and nectar. Male sings rich whistling song from treetops. Attracted to fruit and jelly at feeders.",
+    lookAlikes: ["Baltimore Oriole (male has all-black head, rare in Idaho)", "Hooded Oriole (more orange, different range)", "Western Tanager (different bill shape, wing bars)"],
+    nestingInfo: "Weaves elaborate hanging pouch nest suspended from branch tips in tall trees. 4-5 pale gray eggs with dark scrawls.",
+    conservationStatus: "Least Concern",
+    wingspanInches: [9.1, 12.2],
+    lengthInches: [6.7, 7.5],
+    ebirdCode: "bulori"
+  },
+  {
+    id: 53, name: "Yellow Warbler", scientific: "Setophaga petechia", family: "Warblers",
+    presence: "summer", habitat: ["riparian"], diet: "insects", size: "small",
+    commonality: 0.6, weatherPrefs: { tempMin: 55, tempMax: 95, rainTolerance: 0.3, windTolerance: 0.3 },
+    description: "Bright yellow warbler with reddish breast streaks on male. 'Sweet-sweet-sweet' song.",
+    peakHours: [6, 7, 8, 17, 18], months: [5, 6, 7, 8], image: wikiImg("Yellow_Warbler_(9717666206).jpg"),
+    fieldMarks: ["Entirely yellow with olive-yellow back", "Male: reddish streaks on breast", "Black beady eye on yellow face", "Yellow tail spots visible in flight", "No wing bars"],
+    funFact: "Yellow Warblers are a favorite host of Brown-headed Cowbirds, but they've learned to fight back - they can recognize cowbird eggs and will build a new nest floor over them, sometimes creating 6-layer nests!",
+    behavior: "Actively gleans insects from willow and cottonwood foliage. Male sings persistent sweet song from exposed perches. Pumps tail frequently.",
+    lookAlikes: ["Wilson's Warbler (black cap on male)", "Orange-crowned Warbler (duller, olive-gray)", "Common Yellowthroat (black mask on male)"],
+    nestingInfo: "Builds compact cup nest in fork of shrub or small tree, often in willows. 4-5 pale eggs with brown spots.",
+    conservationStatus: "Least Concern",
+    wingspanInches: [6.3, 7.9],
+    lengthInches: [4.7, 5.1],
+    ebirdCode: "yelwar"
+  },
+  {
+    id: 54, name: "Black-headed Grosbeak", scientific: "Pheucticus melanocephalus", family: "Cardinals",
+    presence: "summer", habitat: ["riparian", "forest"], diet: "omnivore", size: "medium",
+    commonality: 0.5, weatherPrefs: { tempMin: 55, tempMax: 95, rainTolerance: 0.3, windTolerance: 0.4 },
+    description: "Stocky finch with large bill. Male has orange breast, black head.",
+    peakHours: [6, 7, 8, 17, 18], months: [5, 6, 7, 8], image: wikiImg("Black-headed_Grosbeak_(male).jpg"),
+    fieldMarks: ["Large conical bill", "Male: black head, orange-cinnamon breast", "Male: black and white wings", "Female: streaked brown with buff eyebrow", "Yellow wing linings visible in flight"],
+    funFact: "Black-headed Grosbeaks are one of the few birds that can eat monarch butterflies! They're immune to the toxins that make monarchs poisonous to most predators.",
+    behavior: "Forages deliberately in tree canopy for insects, seeds, and berries. Male sings robin-like whistled song. Both sexes sing, even while incubating!",
+    lookAlikes: ["Rose-breasted Grosbeak (Eastern, male has red chest patch)", "Spotted Towhee (different shape, ground forager)", "Evening Grosbeak (yellow and black, different pattern)"],
+    nestingInfo: "Builds loose cup nest in dense foliage of deciduous trees. 3-4 pale blue-green eggs with brown spots. Both parents incubate.",
+    conservationStatus: "Least Concern",
+    wingspanInches: [12.2, 12.6],
+    lengthInches: [7.1, 7.5],
+    ebirdCode: "bkhgro"
+  },
+  {
+    id: 55, name: "Western Wood-Pewee", scientific: "Contopus sordidulus", family: "Flycatchers",
+    presence: "summer", habitat: ["riparian", "forest"], diet: "insects", size: "small",
+    commonality: 0.45, weatherPrefs: { tempMin: 55, tempMax: 95, rainTolerance: 0.2, windTolerance: 0.3 },
+    description: "Plain gray flycatcher. Distinctive burry 'pee-wee' call.",
+    peakHours: [6, 7, 8, 17, 18, 19], months: [5, 6, 7, 8], image: wikiImg("Western_Wood-Pewee_(Contopus_sordidulus).jpg"),
+    fieldMarks: ["Dark gray-olive overall", "Two pale wing bars", "No eye ring", "Dark bill with pale base below", "Long wings extending past tail base"],
+    funFact: "Western Wood-Pewees are one of the last migrants to arrive in spring and first to leave in fall - they spend only about 3 months on their breeding grounds!",
+    behavior: "Perches upright on exposed dead branches, sallying out to catch flying insects. Sings distinctive burry 'pee-wee' constantly, even in heat of day.",
+    lookAlikes: ["Eastern Wood-Pewee (nearly identical, different song and range)", "Willow Flycatcher (eye ring, different call)", "Western Flycatcher (yellower, eye ring)"],
+    nestingInfo: "Builds shallow cup nest on horizontal branch, often covered with lichens. 3 creamy white eggs with brown spots at larger end.",
+    conservationStatus: "Least Concern (declining)",
+    wingspanInches: [10.2, 10.6],
+    lengthInches: [5.5, 6.3],
+    ebirdCode: "wewpew"
+  },
+  {
+    id: 56, name: "Say's Phoebe", scientific: "Sayornis saya", family: "Flycatchers",
+    presence: "summer", habitat: ["open", "urban"], diet: "insects", size: "small",
+    commonality: 0.5, weatherPrefs: { tempMin: 50, tempMax: 100, rainTolerance: 0.2, windTolerance: 0.4 },
+    description: "Pale flycatcher with cinnamon belly. Wags tail. Early spring arrival.",
+    peakHours: [7, 8, 9, 16, 17, 18], months: [3, 4, 5, 6, 7, 8, 9], image: wikiImg("Say's_Phoebe_(Sayornis_saya).jpg"),
+    fieldMarks: ["Grayish-brown head and back", "Cinnamon-buff belly and undertail", "Black tail", "No wing bars", "Constantly wags tail"],
+    funFact: "Say's Phoebes are among the earliest spring migrants, arriving when snow may still be on the ground. They can survive cold snaps by eating berries when insects are unavailable!",
+    behavior: "Perches on low exposed spots like fence posts, wagging tail constantly. Hovers to pick insects off ground or walls. Very tolerant of humans.",
+    lookAlikes: ["Eastern Phoebe (darker, no cinnamon below)", "Western Kingbird (larger, yellow belly)", "Ash-throated Flycatcher (wing bars, different habitat)"],
+    nestingInfo: "Builds mud and grass cup nest on ledges, bridges, or buildings. Very tolerant of human structures. 4-5 white eggs.",
+    conservationStatus: "Least Concern",
+    wingspanInches: [13.0, 13.4],
+    lengthInches: [6.7, 7.5],
+    ebirdCode: "saypho"
+  },
+  {
+    id: 57, name: "Warbling Vireo", scientific: "Vireo gilvus", family: "Vireos",
+    presence: "summer", habitat: ["riparian"], diet: "insects", size: "small",
+    commonality: 0.45, weatherPrefs: { tempMin: 55, tempMax: 90, rainTolerance: 0.3, windTolerance: 0.3 },
+    description: "Plain gray-green bird with no wing bars. Long warbling song.",
+    peakHours: [6, 7, 8, 17, 18], months: [5, 6, 7, 8], image: wikiImg("Warbling_Vireo_(Vireo_gilvus).jpg"),
+    fieldMarks: ["Plain grayish-olive above", "Whitish below with yellow wash on sides", "Pale eyebrow stripe", "No wing bars", "Thick bill with slight hook"],
+    funFact: "Warbling Vireos sing almost constantly during breeding season - one male was recorded singing over 4,000 songs in a single day!",
+    behavior: "Forages deliberately in tree canopy, often heard before seen. Sings long, rambling warbling song repeatedly from concealed perches in deciduous trees.",
+    lookAlikes: ["Red-eyed Vireo (bold eyebrow with black border)", "Philadelphia Vireo (yellower below, different song)", "Tennessee Warbler (thinner bill, different behavior)"],
+    nestingInfo: "Builds hanging cup nest suspended from forked branch. 3-5 white eggs with sparse brown spots. Often parasitized by cowbirds.",
+    conservationStatus: "Least Concern",
+    wingspanInches: [8.7, 8.7],
+    lengthInches: [4.7, 5.1],
+    ebirdCode: "warvir"
+  },
+  {
+    id: 58, name: "House Wren", scientific: "Troglodytes aedon", family: "Wrens",
+    presence: "summer", habitat: ["riparian", "urban", "parks"], diet: "insects", size: "small",
+    commonality: 0.6, weatherPrefs: { tempMin: 50, tempMax: 95, rainTolerance: 0.3, windTolerance: 0.3 },
+    description: "Small brown bird with upturned tail. Incredibly loud bubbly song.",
+    peakHours: [6, 7, 8, 17, 18], months: [4, 5, 6, 7, 8, 9], image: wikiImg("House_Wren_by_Dan_Pancamo.jpg"),
+    fieldMarks: ["Small and compact", "Plain brown with faint barring on wings and tail", "Thin slightly curved bill", "Often cocks tail upward", "Pale eyebrow stripe"],
+    funFact: "House Wrens are fierce competitors for nest cavities - they'll puncture eggs and kill nestlings of other birds, even larger species, to claim nest boxes!",
+    behavior: "Extremely active and vocal. Males sing incredibly loud, bubbling song disproportionate to their tiny size. Stuffs multiple cavities with sticks.",
+    lookAlikes: ["Pacific Wren (darker, shorter tail, different habitat)", "Bewick's Wren (longer tail, bold eyebrow)", "Winter Wren (darker, shorter tail)"],
+    nestingInfo: "Cavity nester using nest boxes, woodpecker holes, or crevices. Male fills cavity with sticks; female lines with soft materials. 6-8 white eggs with brown spots.",
+    conservationStatus: "Least Concern",
+    wingspanInches: [5.9, 5.9],
+    lengthInches: [4.3, 5.1],
+    ebirdCode: "houwre"
+  },
+  {
+    id: 59, name: "Tree Swallow", scientific: "Tachycineta bicolor", family: "Swallows",
+    presence: "summer", habitat: ["riparian", "river", "ponds"], diet: "insects", size: "small",
+    commonality: 0.65, weatherPrefs: { tempMin: 50, tempMax: 95, rainTolerance: 0.2, windTolerance: 0.5 },
+    description: "Iridescent blue-green above, white below. Graceful flight over water.",
+    peakHours: [6, 7, 8, 17, 18, 19], months: [3, 4, 5, 6, 7, 8, 9], image: wikiImg("Tree_swallow_at_Stroud_Preserve.jpg"),
+    fieldMarks: ["Iridescent blue-green upperparts", "Clean white underparts", "Slightly notched tail", "No breast band", "Dark flight feathers contrast with white"],
+    funFact: "Tree Swallows are the only swallows that can digest waxy bayberries, allowing them to survive cold snaps when insects are unavailable and to winter farther north than other swallows!",
+    behavior: "Graceful aerial forager over water and fields. Gathers in huge flocks during migration. Readily uses nest boxes. Often perches in rows on wires.",
+    lookAlikes: ["Violet-green Swallow (white extends onto face)", "Bank Swallow (brown with breast band)", "Barn Swallow (forked tail, rusty throat)"],
+    nestingInfo: "Cavity nester, readily uses nest boxes. Lines nest with feathers, often white ones. 4-7 white eggs. Forms large post-breeding flocks.",
+    conservationStatus: "Least Concern",
+    wingspanInches: [11.8, 13.8],
+    lengthInches: [4.7, 5.9],
+    ebirdCode: "treswa"
+  },
+  {
+    id: 60, name: "Barn Swallow", scientific: "Hirundo rustica", family: "Swallows",
+    presence: "summer", habitat: ["riparian", "urban", "open"], diet: "insects", size: "small",
+    commonality: 0.7, weatherPrefs: { tempMin: 55, tempMax: 95, rainTolerance: 0.2, windTolerance: 0.5 },
+    description: "Blue above with rusty throat, deeply forked tail. Nests under bridges.",
+    peakHours: [6, 7, 8, 17, 18, 19], months: [4, 5, 6, 7, 8, 9], image: wikiImg("Hirundo_rustica_-Saxony,_Germany-8.jpg"),
+    fieldMarks: ["Deeply forked tail with long streamers", "Steely blue upperparts", "Rusty-orange throat and forehead", "Buff to cinnamon underparts", "Slender, streamlined body"],
+    funFact: "Barn Swallows are the most widespread swallow species in the world, found on every continent except Antarctica. A single bird may travel 600 miles per day during migration!",
+    behavior: "Acrobatic low flight over fields and water catching insects. Often follows tractors and livestock. Nests almost exclusively on human structures.",
+    lookAlikes: ["Cliff Swallow (square tail, pale rump)", "Tree Swallow (shorter tail, white underparts)", "Violet-green Swallow (white rump patches)"],
+    nestingInfo: "Builds cup nest of mud pellets mixed with grass on ledges under bridges, in barns, or under eaves. 4-5 white eggs with brown spots. Often colonial.",
+    conservationStatus: "Least Concern (declining)",
+    wingspanInches: [11.4, 12.6],
+    lengthInches: [5.9, 7.5],
+    ebirdCode: "barswa"
+  },
+  {
+    id: 61, name: "Cliff Swallow", scientific: "Petrochelidon pyrrhonota", family: "Swallows",
+    presence: "summer", habitat: ["riparian", "urban"], diet: "insects", size: "small",
+    commonality: 0.6, weatherPrefs: { tempMin: 55, tempMax: 95, rainTolerance: 0.2, windTolerance: 0.5 },
+    description: "Square tail, pale rump, dark throat. Builds mud nests in colonies.",
+    peakHours: [6, 7, 8, 17, 18, 19], months: [4, 5, 6, 7, 8, 9], image: wikiImg("Cliff_Swallow_(14501721151).jpg"),
+    fieldMarks: ["Square tail (not forked)", "Pale buff rump patch", "Dark rusty throat", "Pale forehead patch", "Steely blue back with white streaking"],
+    funFact: "Cliff Swallows at San Juan Capistrano, California became famous for returning on the same date each year. Their gourd-shaped mud nests can contain over 1,000 mud pellets each!",
+    behavior: "Highly colonial, nesting in large groups under bridges and eaves. Forages in flocks, often at higher altitudes than other swallows. Voice is squeaky churring.",
+    lookAlikes: ["Barn Swallow (forked tail, no pale rump)", "Cave Swallow (cinnamon forehead, rare)", "Tree Swallow (white underparts, no rump patch)"],
+    nestingInfo: "Builds gourd-shaped enclosed mud nest with entrance tube, attached to vertical surfaces. Highly colonial - hundreds of nests together. 4-5 white eggs with brown spots.",
+    conservationStatus: "Least Concern",
+    wingspanInches: [11.0, 11.8],
+    lengthInches: [5.0, 6.0],
+    ebirdCode: "cliswa"
+  },
+  {
+    id: 62, name: "Osprey", scientific: "Pandion haliaetus", family: "Ospreys",
+    presence: "summer", habitat: ["river"], diet: "fish", size: "large",
+    commonality: 0.5, weatherPrefs: { tempMin: 50, tempMax: 95, rainTolerance: 0.4, windTolerance: 0.5 },
+    description: "Large fish-eating hawk. White head with dark eye stripe. Hovers then dives.",
+    peakHours: [7, 8, 9, 10, 15, 16, 17], months: [4, 5, 6, 7, 8, 9], image: wikiImg("Osprey_(Pandion_haliaetus)_in_flight.jpg"),
+    fieldMarks: ["White head with dark eye stripe", "Dark brown upperparts", "White underparts with dark wrist patches", "Crooked wings in flight (M-shape)", "Reversible outer toe for gripping fish"],
+    funFact: "Ospreys have specialized adaptations for fishing: reversible outer toes, barbed foot pads for gripping slippery fish, and closable nostrils for diving. They catch fish on 25-70% of dives!",
+    behavior: "Hovers over water then plunges feet-first to catch fish. Carries fish headfirst to reduce drag. Shakes off water in flight. Returns to same nest site yearly.",
+    lookAlikes: ["Bald Eagle (much larger, different pattern)", "Red-tailed Hawk (no wrist patches, different habitat)", "Rough-legged Hawk (winter only, different pattern)"],
+    nestingInfo: "Builds large stick nest on tall structures - poles, platforms, dead trees. Same nest used for years, growing enormous. 2-4 creamy eggs with brown blotches.",
+    conservationStatus: "Least Concern",
+    wingspanInches: [59, 71],
+    lengthInches: [21, 23],
+    ebirdCode: "osprey"
+  },
+  {
+    id: 63, name: "Common Nighthawk", scientific: "Chordeiles minor", family: "Nightjars",
+    presence: "summer", habitat: ["urban", "open"], diet: "insects", size: "medium",
+    commonality: 0.4, weatherPrefs: { tempMin: 60, tempMax: 100, rainTolerance: 0.1, windTolerance: 0.4 },
+    description: "Crepuscular bird with white wing patches. Nasal 'peent' call at dusk.",
+    peakHours: [19, 20, 21, 5], months: [5, 6, 7, 8], image: wikiImg("Common_Nighthawk_(Chordeiles_minor)_RWD2.jpg"),
+    fieldMarks: ["Long pointed wings with white bar near tip", "Mottled gray-brown camouflage plumage", "Slightly forked tail with white bar (male)", "Tiny bill but huge gape", "White throat patch"],
+    funFact: "Despite the name, Common Nighthawks are not hawks at all - they're related to Whip-poor-wills. Males make a booming sound by diving and pulling up sharply, air rushing through wing feathers!",
+    behavior: "Crepuscular and nocturnal, flying erratically catching insects. Calls 'peent' repeatedly at dusk. Roosts lengthwise on branches. Males perform dramatic diving displays.",
+    lookAlikes: ["Lesser Nighthawk (wing bar closer to tip, different call)", "Common Poorwill (shorter wings, different habitat)", "Whip-poor-will (rounded wings, different range)"],
+    nestingInfo: "No nest built - lays 2 cream-colored eggs with brown spots directly on bare ground, gravel rooftops, or flat rocks. Incredible camouflage protects eggs and sitting bird.",
+    conservationStatus: "Least Concern (declining)",
+    wingspanInches: [21, 24],
+    lengthInches: [8.7, 9.4],
+    ebirdCode: "comnig"
+  },
+  {
+    id: 64, name: "Lazuli Bunting", scientific: "Passerina amoena", family: "Cardinals",
+    presence: "summer", habitat: ["riparian"], diet: "seeds", size: "small",
+    commonality: 0.35, weatherPrefs: { tempMin: 55, tempMax: 95, rainTolerance: 0.2, windTolerance: 0.3 },
+    description: "Stunning male is turquoise blue with orange breast. Sings from exposed perches.",
+    peakHours: [6, 7, 8, 17, 18], months: [5, 6, 7, 8], image: wikiImg("Lazuli_Bunting,_male,_Cap_Tourmente.jpg"),
+    fieldMarks: ["Male: bright turquoise-blue head and back", "Male: cinnamon-orange breast", "Male: white wing bars", "Female: warm brown with hints of blue on rump", "Thick conical bill"],
+    funFact: "Young male Lazuli Buntings learn their songs from older males but often mix elements from multiple tutors, creating unique individual songs. No two males sing exactly alike!",
+    behavior: "Males sing from exposed perches atop shrubs and small trees. Forages on ground for seeds. Females secretive during nesting. Forms mixed flocks during migration.",
+    lookAlikes: ["Indigo Bunting (Eastern, all blue, may hybridize)", "Western Bluebird (different bill shape, rusty breast extends to back)", "Blue Grosbeak (larger, rust wing bars)"],
+    nestingInfo: "Female builds compact cup nest low in dense shrub. 3-5 pale blue eggs. Male rarely helps with incubation but feeds nestlings.",
+    conservationStatus: "Least Concern",
+    wingspanInches: [8.7, 8.7],
+    lengthInches: [5.1, 5.9],
+    ebirdCode: "lazbun"
+  },
+  {
+    id: 65, name: "Western Kingbird", scientific: "Tyrannus verticalis", family: "Flycatchers",
+    presence: "summer", habitat: ["open", "riparian"], diet: "insects", size: "medium",
+    commonality: 0.55, weatherPrefs: { tempMin: 55, tempMax: 100, rainTolerance: 0.2, windTolerance: 0.5 },
+    description: "Gray and yellow flycatcher. Aggressive defender of territory. Catches insects in flight.",
+    peakHours: [6, 7, 8, 17, 18, 19], months: [5, 6, 7, 8, 9], image: wikiImg("Western_Kingbird.jpg"),
+    fieldMarks: ["Gray head and breast", "Yellow belly", "Black tail with white outer edges", "Dark wings", "Concealed orange-red crown patch"],
+    funFact: "Western Kingbirds are fearless defenders of their territory - they'll attack and chase away birds much larger than themselves, including hawks, crows, and even eagles!",
+    behavior: "Perches conspicuously on wires and fences, sallying out to catch insects in acrobatic flight. Very vocal with sharp calls. Aggressively mobs predators near nest.",
+    lookAlikes: ["Eastern Kingbird (white-tipped tail, white underparts)", "Cassin's Kingbird (darker gray, different tail pattern)", "Tropical Kingbird (larger bill, different call)"],
+    nestingInfo: "Builds bulky cup nest in trees or on structures, often using string, cloth, and other human debris. 3-5 creamy white eggs with dark blotches.",
+    conservationStatus: "Least Concern",
+    wingspanInches: [15.0, 16.1],
+    lengthInches: [7.9, 9.4],
+    ebirdCode: "weskin"
+  },
+  { id: 66, name: "Calliope Hummingbird", scientific: "Selasphorus calliope", family: "Hummingbirds", presence: "summer", habitat: ["riparian", "parks"], diet: "nectar", size: "tiny", commonality: 0.3, weatherPrefs: { tempMin: 50, tempMax: 90, rainTolerance: 0.1, windTolerance: 0.2 }, description: "Smallest bird in North America north of Mexico. Male has magenta streaked throat.", peakHours: [6, 7, 8, 16, 17, 18], months: [4, 5, 6, 7, 8], image: wikiImg("Calliope_Hummingbird_(Selasphorus_calliope).jpg") },
+
+  // Migration-only species
+  { id: 67, name: "Yellow-rumped Warbler", scientific: "Setophaga coronata", family: "Warblers", presence: "migration", habitat: ["riparian", "forest"], diet: "insects", size: "small", commonality: 0.6, weatherPrefs: { tempMin: 40, tempMax: 70, rainTolerance: 0.3, windTolerance: 0.3 }, description: "Gray warbler with yellow rump, sides, and crown patch. Common migrant.", peakHours: [7, 8, 9, 16, 17], months: [4, 5, 9, 10], image: wikiImg("Yellow-rumped_Warbler_(Setophaga_coronata).jpg") },
+  { id: 68, name: "Wilson's Warbler", scientific: "Cardellina pusilla", family: "Warblers", presence: "migration", habitat: ["riparian"], diet: "insects", size: "small", commonality: 0.4, weatherPrefs: { tempMin: 45, tempMax: 75, rainTolerance: 0.3, windTolerance: 0.2 }, description: "Bright yellow warbler. Male has black cap. Very active forager.", peakHours: [6, 7, 8, 17, 18], months: [4, 5, 8, 9], image: wikiImg("Wilson's_Warbler_(Cardellina_pusilla).jpg") },
+  { id: 69, name: "Orange-crowned Warbler", scientific: "Leiothlypis celata", family: "Warblers", presence: "migration", habitat: ["riparian"], diet: "insects", size: "small", commonality: 0.45, weatherPrefs: { tempMin: 45, tempMax: 75, rainTolerance: 0.3, windTolerance: 0.2 }, description: "Drab olive-yellow warbler. Orange crown rarely visible. Common migrant.", peakHours: [7, 8, 9, 16, 17], months: [4, 5, 9, 10], image: wikiImg("Orange-crowned_Warbler_(Leiothlypis_celata).jpg") },
+  { id: 70, name: "Western Tanager", scientific: "Piranga ludoviciana", family: "Cardinals", presence: "migration", habitat: ["riparian", "forest"], diet: "omnivore", size: "medium", commonality: 0.45, weatherPrefs: { tempMin: 50, tempMax: 80, rainTolerance: 0.2, windTolerance: 0.3 }, description: "Male is brilliant yellow with red head and black wings. Stunning migrant.", peakHours: [6, 7, 8, 17, 18], months: [5, 9], image: wikiImg("Western_Tanager_(Piranga_ludoviciana).jpg") },
+  { id: 71, name: "Chipping Sparrow", scientific: "Spizella passerina", family: "Sparrows", presence: "migration", habitat: ["parks", "riparian"], diet: "seeds", size: "small", commonality: 0.5, weatherPrefs: { tempMin: 45, tempMax: 80, rainTolerance: 0.3, windTolerance: 0.3 }, description: "Small sparrow with rusty cap, white eyebrow, black eyeline. Trilling song.", peakHours: [6, 7, 8, 17, 18], months: [4, 5, 9, 10], image: wikiImg("Chipping_Sparrow_(Spizella_passerina).jpg") },
+  { id: 72, name: "Lincoln's Sparrow", scientific: "Melospiza lincolnii", family: "Sparrows", presence: "migration", habitat: ["riparian"], diet: "seeds", size: "small", commonality: 0.35, weatherPrefs: { tempMin: 40, tempMax: 70, rainTolerance: 0.4, windTolerance: 0.2 }, description: "Secretive sparrow with buffy breast and fine streaking. Skulking behavior.", peakHours: [6, 7, 8, 17, 18], months: [4, 5, 9, 10], image: wikiImg("Lincoln's_Sparrow_(Melospiza_lincolnii).jpg") },
+  { id: 73, name: "Snow Goose", scientific: "Anser caerulescens", family: "Geese", presence: "migration", habitat: ["river", "open"], diet: "herbivore", size: "large", commonality: 0.3, weatherPrefs: { tempMin: 30, tempMax: 60, rainTolerance: 0.6, windTolerance: 0.6 }, description: "White goose with black wingtips. Migrates in large noisy flocks.", peakHours: [7, 8, 9, 16, 17], months: [3, 4, 10, 11], image: wikiImg("Snow_goose_in_Central_Park_(33124).jpg") },
+  { id: 74, name: "Sandhill Crane", scientific: "Antigone canadensis", family: "Cranes", presence: "migration", habitat: ["open", "river"], diet: "omnivore", size: "large", commonality: 0.35, weatherPrefs: { tempMin: 35, tempMax: 70, rainTolerance: 0.4, windTolerance: 0.5 }, description: "Tall gray crane with red crown. Bugling call. Migrates in large flocks.", peakHours: [7, 8, 9, 16, 17], months: [3, 4, 10, 11], image: wikiImg("Sandhill_crane_(Antigone_canadensis).jpg") },
+  { id: 75, name: "Great Egret", scientific: "Ardea alba", family: "Herons", presence: "migration", habitat: ["river", "ponds"], diet: "fish", size: "large", commonality: 0.25, weatherPrefs: { tempMin: 50, tempMax: 90, rainTolerance: 0.5, windTolerance: 0.3 }, description: "Large white heron with yellow bill. Elegant slow stalker of fish.", peakHours: [7, 8, 9, 16, 17, 18], months: [4, 5, 8, 9], image: wikiImg("Great_Egret_(Ardea_alba)_-_Lasalle_Park.jpg") },
+  { id: 76, name: "Black-necked Stilt", scientific: "Himantopus mexicanus", family: "Stilts", presence: "migration", habitat: ["ponds"], diet: "insects", size: "medium", commonality: 0.2, weatherPrefs: { tempMin: 50, tempMax: 90, rainTolerance: 0.5, windTolerance: 0.3 }, description: "Elegant shorebird with extremely long pink legs. Black and white plumage.", peakHours: [7, 8, 9, 16, 17], months: [4, 5, 8, 9], image: wikiImg("Black-necked_Stilt_(Himantopus_mexicanus),_Corte_Madera.jpg") },
+  { id: 77, name: "Killdeer", scientific: "Charadrius vociferus", family: "Plovers", presence: "year-round", habitat: ["open", "parks", "river"], diet: "insects", size: "medium", commonality: 0.6, weatherPrefs: { tempMin: 35, tempMax: 95, rainTolerance: 0.4, windTolerance: 0.5 }, description: "Noisy plover with two black breast bands. Famous broken-wing display.", peakHours: [6, 7, 8, 17, 18, 19], image: wikiImg("Charadrius_vociferus_-Sand_Lake_National_Wildlife_Refuge,_South_Dakota,_USA-8.jpg") },
+
+  // Additional species recommended by expert review
+  { id: 78, name: "Red-winged Blackbird", scientific: "Agelaius phoeniceus", family: "Blackbirds", presence: "year-round", habitat: ["riparian", "ponds"], diet: "omnivore", size: "medium", commonality: 0.85, weatherPrefs: { tempMin: 30, tempMax: 95, rainTolerance: 0.5, windTolerance: 0.5 }, description: "Male glossy black with red and yellow shoulder patches. Female streaky brown. Loud 'conk-la-ree!' call.", peakHours: [6, 7, 8, 17, 18, 19], image: wikiImg("Red-winged_Blackbird_-_Agelaius_phoeniceus.jpg"), fieldMarks: ["Male: red shoulder patches with yellow border", "Female: heavily streaked brown", "Pointed bill", "Often in cattails"], funFact: "Males may have up to 15 mates! They defend territories fiercely, even attacking much larger birds and people.", behavior: "Males display from cattails, spreading wings to show red patches. Forms enormous winter roosts.", lookAlikes: ["Tricolored Blackbird (white border on red patch)", "Brewer's Blackbird (no red patches)"], conservationStatus: "Least Concern" },
+  { id: 79, name: "Wood Duck", scientific: "Aix sponsa", family: "Ducks", presence: "year-round", habitat: ["river", "ponds", "riparian"], diet: "omnivore", size: "medium", commonality: 0.55, weatherPrefs: { tempMin: 30, tempMax: 85, rainTolerance: 0.7, windTolerance: 0.4 }, description: "Stunning duck. Male has iridescent green and purple head with white stripes. Female gray-brown with white eye ring.", peakHours: [6, 7, 8, 17, 18], image: wikiImg("Wood_Duck_(Aix_sponsa).jpg"), fieldMarks: ["Male: colorful head pattern, red eye, chestnut breast", "Female: gray with teardrop white eye patch", "Both: crested head, long tail"], funFact: "Day-old ducklings jump from nest cavities up to 50 feet high! They bounce on landing and are rarely hurt.", behavior: "Perches in trees unlike most ducks. Nests in tree cavities. Often seen in pairs in quiet backwaters.", lookAlikes: ["Hooded Merganser (male has white crest)"], conservationStatus: "Least Concern" },
+  { id: 80, name: "Double-crested Cormorant", scientific: "Nannopterum auritum", family: "Cormorants", presence: "year-round", habitat: ["river", "ponds"], diet: "fish", size: "large", commonality: 0.6, weatherPrefs: { tempMin: 35, tempMax: 90, rainTolerance: 0.7, windTolerance: 0.4 }, description: "Large dark waterbird that dives for fish. Often seen drying wings on logs and rocks.", peakHours: [7, 8, 9, 15, 16, 17], image: wikiImg("Double-crested_Cormorant_(Nannopterum_auritum).jpg"), fieldMarks: ["All dark with orange throat patch", "Hooked bill tip", "Stands upright with wings spread", "Long neck with kink"], funFact: "Cormorant feathers aren't fully waterproof - that's why they spread wings to dry. This also helps them dive deeper by reducing buoyancy!", behavior: "Swims low in water, diving frequently. Perches with wings spread in 'heraldic' pose. Flies in lines.", lookAlikes: ["Common Loon (different shape, spotted pattern)", "Anhinga (not in Idaho)"], conservationStatus: "Least Concern" },
+  { id: 81, name: "Common Yellowthroat", scientific: "Geothlypis trichas", family: "Warblers", presence: "summer", habitat: ["riparian", "ponds"], diet: "insects", size: "small", commonality: 0.55, weatherPrefs: { tempMin: 50, tempMax: 90, rainTolerance: 0.4, windTolerance: 0.3 }, description: "Male has bold black mask with yellow throat. Female olive above, yellowish below. Loud 'witchity-witchity-witchity' song.", peakHours: [6, 7, 8, 17, 18], months: [5, 6, 7, 8, 9], image: wikiImg("Common_Yellowthroat_(Geothlypis_trichas).jpg"), fieldMarks: ["Male: black mask, yellow throat", "Female: plain with yellowish throat", "Olive-brown upperparts", "Thin pointed bill"], funFact: "The male's black mask varies geographically - western birds have wider masks extending behind the eye.", behavior: "Skulks in dense marsh vegetation. Pops up briefly to sing. Wren-like movements through cattails.", lookAlikes: ["Yellow Warbler (no mask, all yellow)", "Kentucky Warbler (yellow spectacles)"], conservationStatus: "Least Concern" },
+  { id: 82, name: "Bewick's Wren", scientific: "Thryomanes bewickii", family: "Wrens", presence: "year-round", habitat: ["riparian", "urban", "parks"], diet: "insects", size: "small", commonality: 0.5, weatherPrefs: { tempMin: 25, tempMax: 90, rainTolerance: 0.3, windTolerance: 0.3 }, description: "Small brown wren with bold white eyebrow and long tail that it flicks sideways.", peakHours: [7, 8, 9, 16, 17], image: wikiImg("Bewick's_Wren_(Thryomanes_bewickii).jpg"), fieldMarks: ["Bold white eyebrow", "Long tail with white corners", "Gray-brown back", "Slightly curved bill", "Barred tail feathers"], funFact: "Bewick's Wren song varies dramatically by region - western and eastern populations have distinctly different dialects.", behavior: "Active and curious, often investigating crevices for insects. Flicks tail sideways while foraging. Sings from exposed perches.", lookAlikes: ["House Wren (fainter eyebrow, shorter tail)", "Carolina Wren (rusty, different range)"], conservationStatus: "Least Concern" },
+  { id: 83, name: "Turkey Vulture", scientific: "Cathartes aura", family: "Vultures", presence: "summer", habitat: ["open", "riparian"], diet: "carrion", size: "large", commonality: 0.7, weatherPrefs: { tempMin: 45, tempMax: 100, rainTolerance: 0.2, windTolerance: 0.7 }, description: "Large dark soaring bird with red featherless head. Holds wings in slight V (dihedral) while soaring.", peakHours: [9, 10, 11, 12, 13, 14, 15, 16], months: [4, 5, 6, 7, 8, 9, 10], image: wikiImg("Turkey_Vulture_(Cathartes_aura).jpg"), fieldMarks: ["Two-toned underwings (dark leading edge)", "Holds wings in V shape", "Red featherless head (adult)", "Silvery flight feathers", "Wobbly flight"], funFact: "Turkey Vultures have the most developed sense of smell of any bird - they can detect carrion from over a mile away!", behavior: "Soars for hours on thermals, rarely flapping. Roosts communally. Regurgitates when threatened as defense.", lookAlikes: ["Black Vulture (white wing patches, flat wings)", "Golden Eagle (different wing shape, feathered head)"], conservationStatus: "Least Concern" },
+  { id: 84, name: "American Dipper", scientific: "Cinclus mexicanus", family: "Dippers", presence: "year-round", habitat: ["river"], diet: "insects", size: "medium", commonality: 0.35, weatherPrefs: { tempMin: 20, tempMax: 75, rainTolerance: 0.9, windTolerance: 0.4 }, description: "Chunky gray bird that walks underwater to feed. Bobs constantly. North America's only truly aquatic songbird.", peakHours: [7, 8, 9, 15, 16, 17], image: wikiImg("American_Dipper_(Cinclus_mexicanus).jpg"), fieldMarks: ["All gray plumage", "Short tail, often cocked", "Constant bobbing motion", "White eyelids flash when blinking", "Chunky body"], funFact: "Dippers can walk on the bottom of fast-flowing streams, using their wings to 'fly' underwater while hunting aquatic insects!", behavior: "Bobs up and down constantly. Walks into water and disappears beneath surface. Song heard year-round, even in winter.", lookAlikes: ["None - unique shape and behavior"], conservationStatus: "Least Concern" },
+];
+
+// Weather condition impacts
+const WEATHER_IMPACTS = {
+  clear: { modifier: 1.2, label: "Excellent birding conditions" },
+  partlyCloudy: { modifier: 1.1, label: "Good birding conditions" },
+  cloudy: { modifier: 0.9, label: "Fair conditions - birds less vocal" },
+  lightRain: { modifier: 0.5, label: "Reduced activity - seek shelter spots" },
+  rain: { modifier: 0.2, label: "Most birds sheltering" },
+  snow: { modifier: 0.3, label: "Limited activity - check feeders" },
+  windy: { modifier: 0.6, label: "Harder to spot - birds staying low" },
+  foggy: { modifier: 0.7, label: "Quiet conditions - listen carefully" },
+};
+
+// Live Weather API for Boise, Idaho
+const BOISE_COORDS = { lat: 43.615, lon: -116.2023 };
+
+const mapWeatherCode = (code) => {
+  if (code === 0) return 'clear';
+  if (code <= 3) return 'partlyCloudy';
+  if (code <= 49) return 'foggy';
+  if (code <= 59) return 'lightRain';
+  if (code <= 69) return 'rain';
+  if (code <= 79) return 'snow';
+  if (code <= 99) return 'rain';
+  return 'cloudy';
+};
+
+const fetchLiveWeather = async () => {
+  try {
+    const response = await fetch(
+      `https://api.open-meteo.com/v1/forecast?latitude=${BOISE_COORDS.lat}&longitude=${BOISE_COORDS.lon}&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m&daily=sunrise,sunset&temperature_unit=fahrenheit&wind_speed_unit=mph&timezone=America%2FBoise&forecast_days=1`
+    );
+    if (!response.ok) throw new Error(`Weather API error: ${response.status}`);
+    const data = await response.json();
+    return {
+      temp: Math.round(data.current.temperature_2m),
+      condition: mapWeatherCode(data.current.weather_code),
+      wind: Math.round(data.current.wind_speed_10m),
+      humidity: Math.round(data.current.relative_humidity_2m),
+      sunrise: new Date(data.daily.sunrise[0]).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
+      sunset: new Date(data.daily.sunset[0]).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
+      isLive: true,
+      lastUpdated: new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
+    };
+  } catch (error) {
+    console.error('Failed to fetch live weather:', error);
+    return null;
+  }
+};
+
+const fetchForecast = async (targetDate) => {
+  try {
+    const today = new Date();
+    const target = new Date(targetDate);
+    const diffDays = Math.floor((target - today) / (1000 * 60 * 60 * 24));
+    if (diffDays < 0 || diffDays > 14) return null;
+
+    const response = await fetch(
+      `https://api.open-meteo.com/v1/forecast?latitude=${BOISE_COORDS.lat}&longitude=${BOISE_COORDS.lon}&daily=temperature_2m_max,temperature_2m_min,weather_code,wind_speed_10m_max,relative_humidity_2m_mean,sunrise,sunset&temperature_unit=fahrenheit&wind_speed_unit=mph&timezone=America%2FBoise&forecast_days=16`
+    );
+    if (!response.ok) throw new Error(`Forecast API error: ${response.status}`);
+    const data = await response.json();
+    const dayIndex = diffDays >= 0 ? diffDays : 0;
+
+    return {
+      tempHigh: Math.round(data.daily.temperature_2m_max[dayIndex]),
+      tempLow: Math.round(data.daily.temperature_2m_min[dayIndex]),
+      temp: Math.round((data.daily.temperature_2m_max[dayIndex] + data.daily.temperature_2m_min[dayIndex]) / 2),
+      condition: mapWeatherCode(data.daily.weather_code[dayIndex]),
+      wind: Math.round(data.daily.wind_speed_10m_max[dayIndex]),
+      humidity: Math.round(data.daily.relative_humidity_2m_mean[dayIndex]),
+      sunrise: new Date(data.daily.sunrise[dayIndex]).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
+      sunset: new Date(data.daily.sunset[dayIndex]).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
+      isForecast: true,
+      forecastDay: diffDays === 0 ? 'Today' : diffDays === 1 ? 'Tomorrow' : `${diffDays} days out`,
+    };
+  } catch (error) {
+    console.error('Failed to fetch forecast:', error);
+    return null;
+  }
+};
+
+const getHistoricalAverage = (date, hour) => {
+  const month = date.getMonth();
+  const monthlyAverages = {
+    0: { avgHigh: 38, avgLow: 24 }, 1: { avgHigh: 46, avgLow: 28 },
+    2: { avgHigh: 55, avgLow: 33 }, 3: { avgHigh: 63, avgLow: 39 },
+    4: { avgHigh: 73, avgLow: 47 }, 5: { avgHigh: 83, avgLow: 55 },
+    6: { avgHigh: 93, avgLow: 62 }, 7: { avgHigh: 91, avgLow: 60 },
+    8: { avgHigh: 80, avgLow: 51 }, 9: { avgHigh: 65, avgLow: 40 },
+    10: { avgHigh: 48, avgLow: 31 }, 11: { avgHigh: 37, avgLow: 23 },
+  };
+  const avg = monthlyAverages[month];
+  const dayProgress = Math.max(0, Math.sin(((hour - 6) / 12) * Math.PI));
+  const temp = Math.round(avg.avgLow + (avg.avgHigh - avg.avgLow) * dayProgress);
+  const conditions = month >= 4 && month <= 9
+    ? ['clear', 'clear', 'partlyCloudy', 'partlyCloudy', 'cloudy']
+    : ['clear', 'cloudy', 'partlyCloudy', 'snow', 'foggy'];
+  const condition = conditions[Math.floor(Math.random() * conditions.length)];
+  const sunriseHours = [7.8, 7.2, 6.5, 5.8, 5.2, 4.9, 5.1, 5.6, 6.2, 6.8, 7.4, 7.8];
+  const sunsetHours = [17.3, 18.0, 18.7, 19.4, 20.1, 20.5, 20.4, 19.8, 19.0, 18.1, 17.2, 17.0];
+
+  return {
+    temp, tempHigh: avg.avgHigh, tempLow: avg.avgLow, condition,
+    wind: Math.round(8 + Math.random() * 10),
+    humidity: Math.round(35 + Math.random() * 30),
+    sunrise: `${Math.floor(sunriseHours[month])}:${String(Math.round((sunriseHours[month] % 1) * 60)).padStart(2, '0')} AM`,
+    sunset: `${Math.floor(sunsetHours[month]) - 12}:${String(Math.round((sunsetHours[month] % 1) * 60)).padStart(2, '0')} PM`,
+    isHistorical: true,
+  };
+};
+
+const calculateBirdLikelihood = (bird, date, weather, hour) => {
+  const month = date.getMonth() + 1;
+  let baseProbability = bird.commonality;
+
+  if (bird.presence === 'winter' && bird.months && !bird.months.includes(month)) return 0;
+  if (bird.presence === 'summer' && bird.months && !bird.months.includes(month)) return 0;
+  if (bird.presence === 'migration' && bird.months && !bird.months.includes(month)) return 0;
+
+  const isActiveHour = bird.peakHours.includes(hour);
+  const hourModifier = isActiveHour ? 1.3 : 0.5;
+  const weatherData = WEATHER_IMPACTS[weather.condition] || WEATHER_IMPACTS.partlyCloudy;
+  const tempDiff = Math.abs(weather.temp - (bird.weatherPrefs.tempMin + bird.weatherPrefs.tempMax) / 2);
+  const tempModifier = Math.max(0.3, 1 - tempDiff / 50);
+  const windModifier = weather.wind > 20 ? bird.weatherPrefs.windTolerance : 1;
+  const rainModifier = weather.condition.includes('rain') ? bird.weatherPrefs.rainTolerance : 1;
+
+  return Math.min(0.99, Math.max(0.01, baseProbability * hourModifier * weatherData.modifier * tempModifier * windModifier * rainModifier));
+};
+
+// Multi-source image component with automatic fallbacks
+const BirdImage = ({ src, alt, scientificName, className, style }) => {
+  const [loaded, setLoaded] = useState(false);
+  const [currentSrcIndex, setCurrentSrcIndex] = useState(0);
+  const [allFailed, setAllFailed] = useState(false);
+  const [imageSources, setImageSources] = useState([src]);
+  const [fetchAttempts, setFetchAttempts] = useState(0);
+
+  // Reset state when src changes (different bird selected)
+  useEffect(() => {
+    setLoaded(false);
+    setCurrentSrcIndex(0);
+    setAllFailed(false);
+    setImageSources([src]);
+    setFetchAttempts(0);
+  }, [src]);
+
+  // Fetch backup images from multiple APIs
+  const fetchBackupImages = async (attemptNumber) => {
+    const newSources = [];
+
+    // Attempt 1: Wikipedia API with scientific name
+    if (attemptNumber === 1 && scientificName) {
+      try {
+        const response = await fetch(
+          `https://en.wikipedia.org/w/api.php?action=query&titles=${encodeURIComponent(scientificName)}&prop=pageimages&format=json&pithumbsize=400&origin=*`
+        );
+        if (!response.ok) throw new Error(`Wikipedia API error: ${response.status}`);
+        const data = await response.json();
+        const pages = data.query?.pages;
+        if (pages && Object.keys(pages).length > 0) {
+          const page = Object.values(pages)[0];
+          if (page?.thumbnail?.source) {
+            newSources.push(page.thumbnail.source);
+          }
+        }
+      } catch (e) {
+        console.log('Wikipedia API (scientific) failed:', e);
+      }
+    }
+
+    // Attempt 2: Wikipedia API with common name
+    if (attemptNumber === 2 && alt) {
+      try {
+        const response = await fetch(
+          `https://en.wikipedia.org/w/api.php?action=query&titles=${encodeURIComponent(alt)}&prop=pageimages&format=json&pithumbsize=400&origin=*`
+        );
+        if (!response.ok) throw new Error(`Wikipedia API error: ${response.status}`);
+        const data = await response.json();
+        const pages = data.query?.pages;
+        if (pages && Object.keys(pages).length > 0) {
+          const page = Object.values(pages)[0];
+          if (page?.thumbnail?.source) {
+            newSources.push(page.thumbnail.source);
+          }
+        }
+      } catch (e) {
+        console.log('Wikipedia API (common name) failed:', e);
+      }
+    }
+
+    // Attempt 3: Try alternate Wikimedia Commons filename patterns
+    if (attemptNumber === 3 && scientificName) {
+      const genus = scientificName.split(' ')[0];
+      const species = scientificName.split(' ')[1] || '';
+      const commonName = alt.replace(/['']/g, '');
+      const patterns = [
+        `${genus}_${species}.jpg`,
+        `${scientificName.replace(/ /g, '_')}.jpg`,
+        `${commonName.replace(/ /g, '_')}.jpg`,
+        `${commonName.replace(/ /g, '_')}_(bird).jpg`,
+        `${genus}_${species}_-_01.jpg`,
+      ];
+      patterns.forEach(p => {
+        newSources.push(`https://commons.wikimedia.org/wiki/Special:FilePath/${encodeURIComponent(p)}?width=400`);
+      });
+    }
+
+    // Attempt 4: Wikimedia Commons search API
+    if (attemptNumber === 4 && scientificName) {
+      try {
+        const searchResponse = await fetch(
+          `https://commons.wikimedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(scientificName)}&srnamespace=6&srlimit=3&format=json&origin=*`
+        );
+        if (!searchResponse.ok) throw new Error(`Wikimedia search error: ${searchResponse.status}`);
+        const searchData = await searchResponse.json();
+        if (searchData.query?.search && Array.isArray(searchData.query.search)) {
+          for (const result of searchData.query.search) {
+            const title = result?.title;
+            if (title && title.match(/\.(jpg|jpeg|png)$/i)) {
+              newSources.push(`https://commons.wikimedia.org/wiki/Special:FilePath/${encodeURIComponent(title.replace('File:', ''))}?width=400`);
+            }
+          }
+        }
+      } catch (e) {
+        console.log('Wikimedia search failed:', e);
+      }
+    }
+
+    return newSources;
+  };
+
+  const handleError = async () => {
+    // Try next source in array
+    if (currentSrcIndex < imageSources.length - 1) {
+      setCurrentSrcIndex(prev => prev + 1);
+      setLoaded(false);
+      return;
+    }
+
+    // Try fetching more backup sources (up to 4 attempts)
+    if (fetchAttempts < 4) {
+      const nextAttempt = fetchAttempts + 1;
+      setFetchAttempts(nextAttempt);
+
+      const backupImages = await fetchBackupImages(nextAttempt);
+      if (backupImages.length > 0) {
+        setImageSources(prev => [...prev, ...backupImages]);
+        setCurrentSrcIndex(prev => prev + 1);
+        setLoaded(false);
+        return;
+      }
+
+      // If this attempt returned nothing, try next attempts
+      for (let attempt = nextAttempt + 1; attempt <= 4; attempt++) {
+        const moreBackups = await fetchBackupImages(attempt);
+        setFetchAttempts(attempt);
+        if (moreBackups.length > 0) {
+          setImageSources(prev => [...prev, ...moreBackups]);
+          setCurrentSrcIndex(prev => prev + 1);
+          setLoaded(false);
+          return;
+        }
+      }
+    }
+
+    // All sources exhausted
+    setAllFailed(true);
+  };
+
+  const currentSrc = imageSources[currentSrcIndex];
+
+  return (
+    <div style={{ ...style, position: 'relative', overflow: 'hidden' }}>
+      {!loaded && !allFailed && (
+        <div style={{
+          position: 'absolute', inset: 0,
+          backgroundColor: '#e5dfd5',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: style?.height ? `${parseInt(style.height) / 3}px` : '24px',
+        }}>
+          <span style={{ animation: 'pulse 1.5s ease-in-out infinite' }}>🐦</span>
+        </div>
+      )}
+      {allFailed ? (
+        <div style={{
+          position: 'absolute', inset: 0,
+          background: 'linear-gradient(135deg, #e8f0e5 0%, #d4e0d0 100%)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          flexDirection: 'column',
+          fontSize: style?.height ? `${parseInt(style.height) / 2.5}px` : '32px',
+        }}>
+          🐦
+          <span style={{
+            fontSize: '0.35em',
+            color: '#6b7c6b',
+            marginTop: '0.3em',
+            fontFamily: 'Georgia, serif',
+            fontStyle: 'italic'
+          }}>
+            {alt}
+          </span>
+        </div>
+      ) : (
+        <img
+          src={currentSrc}
+          alt={alt}
+          className={className}
+          onLoad={() => setLoaded(true)}
+          onError={handleError}
+          style={{
+            width: '100%', height: '100%', objectFit: 'cover',
+            opacity: loaded ? 1 : 0,
+            transition: 'opacity 0.3s ease',
+            borderRadius: style?.borderRadius || 0,
+          }}
+        />
+      )}
+    </div>
+  );
+};
+
+// Main App Component
+const BoiseRiverBirdGuide = () => {
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [selectedHour, setSelectedHour] = useState(new Date().getHours());
+  const [weather, setWeather] = useState(null);
+  const [weatherLoading, setWeatherLoading] = useState(true);
+  const [selectedBird, setSelectedBird] = useState(null);
+  const [filters, setFilters] = useState({ habitat: 'all', size: 'all', likelihood: 'all' });
+  const [searchTerm, setSearchTerm] = useState('');
+  const [viewMode, setViewMode] = useState('grid');
+  const [hoveredHotspot, setHoveredHotspot] = useState(null);
+
+  useEffect(() => {
+    const loadWeather = async () => {
+      setWeatherLoading(true);
+      const today = new Date(); today.setHours(0, 0, 0, 0);
+      const selected = new Date(selectedDate); selected.setHours(0, 0, 0, 0);
+      const diffDays = Math.floor((selected - today) / (1000 * 60 * 60 * 24));
+
+      let weatherData = null;
+      if (diffDays === 0) weatherData = await fetchLiveWeather();
+      else if (diffDays > 0 && diffDays <= 14) weatherData = await fetchForecast(selectedDate);
+      if (!weatherData) weatherData = getHistoricalAverage(selectedDate, selectedHour);
+
+      if (weatherData.tempHigh && weatherData.tempLow) {
+        const dayProgress = Math.max(0, Math.sin(((selectedHour - 6) / 12) * Math.PI));
+        weatherData.temp = Math.round(weatherData.tempLow + (weatherData.tempHigh - weatherData.tempLow) * dayProgress);
+      }
+      setWeather(weatherData);
+      setWeatherLoading(false);
+    };
+    loadWeather();
+  }, [selectedDate, selectedHour]);
+
+  const birdPredictions = useMemo(() => {
+    if (!weather) return [];
+    return BIRD_DATABASE.map(bird => ({
+      ...bird,
+      likelihood: calculateBirdLikelihood(bird, selectedDate, weather, selectedHour),
+    }))
+    .filter(bird => {
+      if (filters.habitat !== 'all' && !bird.habitat.includes(filters.habitat)) return false;
+      if (filters.size !== 'all' && bird.size !== filters.size) return false;
+      if (filters.likelihood !== 'all') {
+        if (filters.likelihood === 'likely' && bird.likelihood < 0.5) return false;
+        if (filters.likelihood === 'possible' && (bird.likelihood < 0.2 || bird.likelihood >= 0.5)) return false;
+        if (filters.likelihood === 'rare' && bird.likelihood >= 0.2) return false;
+      }
+      if (searchTerm && !bird.name.toLowerCase().includes(searchTerm.toLowerCase()) &&
+          !bird.family.toLowerCase().includes(searchTerm.toLowerCase())) return false;
+      return true;
+    })
+    .sort((a, b) => b.likelihood - a.likelihood);
+  }, [weather, selectedDate, selectedHour, filters, searchTerm]);
+
+  // Modern 2025 styling helpers
+  const getLikelihoodColor = (l) => l >= 0.7 ? '#2d5a3d' : l >= 0.5 ? '#4a7c59' : l >= 0.3 ? '#7d9a6f' : l >= 0.15 ? '#d4a574' : '#9a8b7a';
+  const getLikelihoodBg = (l) => l >= 0.7 ? 'linear-gradient(135deg, #2d5a3d, #3d7a4d)' : l >= 0.5 ? 'linear-gradient(135deg, #4a7c59, #5a9c69)' : l >= 0.3 ? 'linear-gradient(135deg, #7d9a6f, #9dba8f)' : l >= 0.15 ? 'linear-gradient(135deg, #d4a574, #e4b584)' : 'linear-gradient(135deg, #9a8b7a, #baa99a)';
+  const getLikelihoodLabel = (l) => l >= 0.7 ? 'Very Likely' : l >= 0.5 ? 'Likely' : l >= 0.3 ? 'Possible' : l >= 0.15 ? 'Uncommon' : 'Rare';
+  const getSeasonLabel = (p) => p === 'year-round' ? 'Year-round resident' : p === 'winter' ? 'Winter visitor' : p === 'summer' ? 'Summer breeder' : 'Migration only';
+  const getSeasonIcon = (p) => p === 'year-round' ? '🏡' : p === 'winter' ? '❄️' : p === 'summer' ? '☀️' : '🍃';
+  const weatherIcons = { clear: '☀️', partlyCloudy: '⛅', cloudy: '☁️', lightRain: '🌦️', rain: '🌧️', snow: '🌨️', windy: '💨', foggy: '🌫️' };
+  const formatDate = (d) => d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+  const formatFullDate = (d) => d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+
+  // Common styles
+  const glassStyle = {
+    background: 'rgba(255, 255, 255, 0.85)',
+    backdropFilter: 'blur(20px)',
+    WebkitBackdropFilter: 'blur(20px)',
+    border: '1px solid rgba(255, 255, 255, 0.5)',
+  };
+
+  const inputStyle = {
+    padding: '14px 18px',
+    fontSize: '15px',
+    border: '2px solid transparent',
+    borderRadius: '16px',
+    backgroundColor: 'rgba(255,255,255,0.9)',
+    width: '100%',
+    outline: 'none',
+    transition: 'all 0.2s ease',
+    boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
+    fontFamily: 'inherit',
+  };
+
+  const pillButtonStyle = (active) => ({
+    padding: '10px 18px',
+    borderRadius: '100px',
+    border: 'none',
+    backgroundColor: active ? '#2d5a3d' : 'rgba(255,255,255,0.8)',
+    color: active ? '#fff' : '#5c5c5c',
+    cursor: 'pointer',
+    fontSize: '15px',
+    fontWeight: '500',
+    transition: 'all 0.2s ease',
+    boxShadow: active ? '0 4px 12px rgba(45,90,61,0.3)' : '0 2px 8px rgba(0,0,0,0.04)',
+  });
+
+  return (
+    <div style={{ minHeight: '100vh', background: 'linear-gradient(180deg, #f0ede6 0%, #f8f6f2 100%)' }}>
+      {/* Skip to main content link for accessibility */}
+      <a href="#bird-grid" style={{
+        position: 'absolute',
+        left: '-9999px',
+        top: 'auto',
+        width: '1px',
+        height: '1px',
+        overflow: 'hidden',
+        zIndex: 9999,
+      }} onFocus={(e) => {
+        e.target.style.left = '10px';
+        e.target.style.top = '10px';
+        e.target.style.width = 'auto';
+        e.target.style.height = 'auto';
+        e.target.style.padding = '12px 20px';
+        e.target.style.background = '#2d5a3d';
+        e.target.style.color = '#fff';
+        e.target.style.borderRadius = '8px';
+        e.target.style.textDecoration = 'none';
+        e.target.style.fontWeight = '600';
+      }} onBlur={(e) => {
+        e.target.style.left = '-9999px';
+        e.target.style.width = '1px';
+        e.target.style.height = '1px';
+      }}>Skip to bird guide</a>
+
+      {/* Hero Header */}
+      <header style={{
+        background: 'linear-gradient(135deg, #1a3a2a 0%, #2d5a3d 50%, #3d6a4d 100%)',
+        padding: '0',
+        color: '#fff',
+        position: 'relative',
+        overflow: 'hidden',
+      }}>
+        {/* Animated background elements */}
+        <div style={{ position: 'absolute', inset: 0, opacity: 0.1, pointerEvents: 'none' }}>
+          <div style={{ position: 'absolute', top: '10%', left: '5%', fontSize: '80px', animation: 'float 6s ease-in-out infinite' }}>🌿</div>
+          <div style={{ position: 'absolute', top: '20%', right: '10%', fontSize: '60px', animation: 'float 8s ease-in-out infinite', animationDelay: '1s' }}>🍃</div>
+          <div style={{ position: 'absolute', bottom: '15%', left: '15%', fontSize: '50px', animation: 'float 7s ease-in-out infinite', animationDelay: '2s' }}>🌾</div>
+          <div style={{ position: 'absolute', bottom: '20%', right: '5%', fontSize: '70px', animation: 'float 9s ease-in-out infinite', animationDelay: '0.5s' }}>🌲</div>
+        </div>
+
+        <div style={{ position: 'relative', zIndex: 1, padding: '1.5rem 2rem 1.5rem', maxWidth: '1400px', margin: '0 auto' }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '16px', marginBottom: '12px', flexWrap: 'wrap' }}>
+            {/* Title */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <span style={{ fontSize: '2rem', animation: 'float 3s ease-in-out infinite' }}>🪶</span>
+              <div>
+                <h1 style={{
+                  fontSize: 'clamp(1.4rem, 4vw, 2rem)',
+                  fontWeight: '400',
+                  margin: 0,
+                  background: 'linear-gradient(90deg, #fff, #a8c69f)',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  backgroundClip: 'text',
+                }}>
+                  Boise River Greenbelt
+                </h1>
+                <p style={{
+                  fontSize: '0.9rem',
+                  opacity: 0.8,
+                  margin: 0,
+                  fontWeight: '300',
+                }}>
+                  Discover what birds you might see on your walk
+                </p>
+              </div>
+            </div>
+
+            {/* Local Resources */}
+            <div style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'flex-end',
+              gap: '6px',
+            }}>
+              <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.7)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Local Resources</span>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <a
+                  href="https://www.goldeneagleaudubon.org/where-to-bird"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '6px 12px',
+                    background: 'rgba(255,255,255,0.15)',
+                    borderRadius: '8px',
+                    color: '#fff',
+                    textDecoration: 'none',
+                    fontSize: '13px',
+                    fontWeight: '500',
+                    transition: 'background 0.2s ease',
+                    backdropFilter: 'blur(8px)',
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.25)'}
+                  onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.15)'}
+                >
+                  🦅 Golden Eagle Audubon
+                </a>
+                <a
+                  href="https://idfg.idaho.gov/ibt"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '6px 12px',
+                    background: 'rgba(255,255,255,0.15)',
+                    borderRadius: '8px',
+                    color: '#fff',
+                    textDecoration: 'none',
+                    fontSize: '13px',
+                    fontWeight: '500',
+                    transition: 'background 0.2s ease',
+                    backdropFilter: 'blur(8px)',
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.25)'}
+                  onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.15)'}
+                >
+                  🗺️ Idaho Birding Trail
+                </a>
+              </div>
+            </div>
+          </div>
+
+          {/* Search and Controls - Compact Glass Card */}
+          <div style={{
+            ...glassStyle,
+            borderRadius: '16px',
+            padding: '14px 18px',
+            boxShadow: '0 4px 20px rgba(0,0,0,0.12)',
+          }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '14px', alignItems: 'center' }}>
+              {/* Date Picker */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <label style={{ fontSize: '13px', fontWeight: '600', color: '#5c5c5c', textTransform: 'uppercase' }}>Date</label>
+                <input
+                  type="date"
+                  value={selectedDate.toISOString().split('T')[0]}
+                  onChange={(e) => setSelectedDate(new Date(e.target.value + 'T12:00:00'))}
+                  style={{ ...inputStyle, padding: '10px 14px', fontSize: '15px' }}
+                />
+              </div>
+
+              {/* Time Picker */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <label style={{ fontSize: '13px', fontWeight: '600', color: '#5c5c5c', textTransform: 'uppercase' }}>Time</label>
+                <select
+                  value={selectedHour}
+                  onChange={(e) => setSelectedHour(parseInt(e.target.value))}
+                  style={{ ...inputStyle, padding: '10px 14px', fontSize: '15px' }}
+                >
+                  {[5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20].map(h => (
+                    <option key={h} value={h}>
+                      {h === 12 ? '12 PM' : h > 12 ? `${h-12} PM` : `${h} AM`}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Search */}
+              <div style={{ flex: '1 1 180px', minWidth: '150px', position: 'relative' }}>
+                <input
+                  type="text"
+                  placeholder="🔍 Search species..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  style={{ ...inputStyle, padding: '10px 14px', fontSize: '15px', width: '100%' }}
+                />
+              </div>
+
+              {/* Filters inline */}
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', alignItems: 'center' }}>
+
+              <select
+                value={filters.habitat}
+                onChange={(e) => setFilters({...filters, habitat: e.target.value})}
+                style={{
+                  ...pillButtonStyle(filters.habitat !== 'all'),
+                  paddingRight: '32px',
+                  appearance: 'none',
+                  backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%235c5c5c' d='M3 4.5L6 8l3-3.5H3z'/%3E%3C/svg%3E")`,
+                  backgroundRepeat: 'no-repeat',
+                  backgroundPosition: 'right 12px center',
+                }}
+              >
+                <option value="all">All Habitats</option>
+                <option value="river">River</option>
+                <option value="riparian">Riparian</option>
+                <option value="ponds">Ponds</option>
+                <option value="forest">Forest</option>
+                <option value="urban">Urban</option>
+                <option value="parks">Parks</option>
+                <option value="open">Open Areas</option>
+              </select>
+
+              <select
+                value={filters.size}
+                onChange={(e) => setFilters({...filters, size: e.target.value})}
+                style={{
+                  ...pillButtonStyle(filters.size !== 'all'),
+                  paddingRight: '32px',
+                  appearance: 'none',
+                  backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%235c5c5c' d='M3 4.5L6 8l3-3.5H3z'/%3E%3C/svg%3E")`,
+                  backgroundRepeat: 'no-repeat',
+                  backgroundPosition: 'right 12px center',
+                }}
+              >
+                <option value="all">All Sizes</option>
+                <option value="tiny">Tiny</option>
+                <option value="small">Small</option>
+                <option value="medium">Medium</option>
+                <option value="large">Large</option>
+              </select>
+
+              <select
+                value={filters.likelihood}
+                onChange={(e) => setFilters({...filters, likelihood: e.target.value})}
+                style={{
+                  ...pillButtonStyle(filters.likelihood !== 'all'),
+                  paddingRight: '32px',
+                  appearance: 'none',
+                  backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%235c5c5c' d='M3 4.5L6 8l3-3.5H3z'/%3E%3C/svg%3E")`,
+                  backgroundRepeat: 'no-repeat',
+                  backgroundPosition: 'right 12px center',
+                }}
+              >
+                <option value="all">All Likelihood</option>
+                <option value="likely">Likely 50%+</option>
+                <option value="possible">Possible 20-50%</option>
+                <option value="rare">Rare &lt;20%</option>
+              </select>
+
+              <div style={{ display: 'flex', gap: '4px', background: 'rgba(0,0,0,0.04)', borderRadius: '100px', padding: '3px' }}>
+                <button
+                  onClick={() => setViewMode('grid')}
+                  style={{
+                    ...pillButtonStyle(viewMode === 'grid'),
+                    padding: '6px 12px',
+                    fontSize: '12px',
+                  }}
+                >
+                  ⊞
+                </button>
+                <button
+                  onClick={() => setViewMode('list')}
+                  style={{
+                    ...pillButtonStyle(viewMode === 'list'),
+                    padding: '6px 12px',
+                    fontSize: '12px',
+                  }}
+                >
+                  ☰
+                </button>
+              </div>
+              </div>{/* End filters inline */}
+            </div>{/* End main flex */}
+          </div>{/* End glass card */}
+        </div>
+      </header>
+
+      {/* Main Content Area */}
+      <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '24px', display: 'flex', gap: '24px', flexWrap: 'wrap' }}>
+        {/* Main Content */}
+        <main style={{ flex: '1 1 600px', minWidth: 0, position: 'relative' }}>
+          {/* Weather & Hotspots - Single Row */}
+          <div style={{
+            display: 'flex',
+            gap: '12px',
+            alignItems: 'stretch',
+            marginBottom: '16px',
+            padding: '12px',
+            background: 'linear-gradient(135deg, rgba(109, 163, 190, 0.06), rgba(45, 90, 61, 0.04))',
+            borderRadius: '12px',
+            border: '1px solid rgba(45, 90, 61, 0.06)',
+            position: 'relative',
+          }}>
+            {/* Weather Card */}
+            {weatherLoading ? (
+              <div style={{
+                borderRadius: '8px',
+                padding: '8px 12px',
+                background: 'linear-gradient(135deg, rgba(107,163,190,0.3) 0%, rgba(168,198,159,0.3) 100%)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                flexShrink: 0,
+              }}>
+                <span style={{ fontSize: '1.3rem', animation: 'float 2s ease-in-out infinite' }}>🌤️</span>
+                <span style={{ color: '#5c5c5c', fontSize: '14px' }}>...</span>
+              </div>
+            ) : weather && (
+              <div
+                onClick={() => window.open('https://forecast.weather.gov/MapClick.php?lat=43.615&lon=-116.2023', '_blank')}
+                style={{
+                  borderRadius: '8px',
+                  padding: '8px 12px',
+                  background: weather.condition === 'clear' || weather.condition === 'partlyCloudy'
+                    ? 'linear-gradient(135deg, #6ba3be 0%, #87c4a8 100%)'
+                    : weather.condition === 'rain' || weather.condition === 'lightRain'
+                    ? 'linear-gradient(135deg, #7a8b99 0%, #9aa8b4 100%)'
+                    : weather.condition === 'snow'
+                    ? 'linear-gradient(135deg, #b8c5d0 0%, #d0dce5 100%)'
+                    : 'linear-gradient(135deg, #8fa4b0 0%, #a8bcc5 100%)',
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '10px',
+                  color: '#fff',
+                  flexShrink: 0,
+                  cursor: 'pointer',
+                  transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = 'scale(1.02)';
+                  e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.2)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = 'scale(1)';
+                  e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
+                }}
+                title="View full Boise forecast on Weather.gov"
+              >
+                <span style={{ fontSize: '1.5rem' }}>{weatherIcons[weather.condition]}</span>
+                <span style={{ fontSize: '1.3rem', fontWeight: '300', fontFamily: "'Fraunces', Georgia, serif" }}>{weather.temp}°</span>
+                <div style={{ fontSize: '13px', lineHeight: 1.3, opacity: 0.95 }}>
+                  <div style={{ fontWeight: '500' }}>{WEATHER_IMPACTS[weather.condition]?.label}</div>
+                  <div style={{ fontSize: '12px' }}>💨{weather.wind}mph 💧{weather.humidity}%</div>
+                </div>
+                {weather.isLive && (
+                  <div style={{
+                    background: 'rgba(72,187,120,0.9)',
+                    padding: '3px 8px',
+                    borderRadius: '6px',
+                    fontSize: '11px',
+                    fontWeight: '600',
+                  }}>LIVE</div>
+                )}
+              </div>
+            )}
+
+            {/* Hotspots - Scrollable */}
+            <div style={{
+              display: 'flex',
+              gap: '8px',
+              overflowX: 'auto',
+              overflowY: 'visible',
+              flex: 1,
+              paddingBottom: '2px',
+              scrollbarWidth: 'thin',
+              scrollbarColor: 'rgba(45,90,61,0.2) transparent',
+              alignItems: 'stretch',
+            }}>
+              {[
+                { name: "Bethine Church", icon: "🦅", birds: "Bald Eagles, Great Blue Herons, Red-tailed Hawks", url: "https://www.cityofboise.org/departments/parks-and-recreation/parks/bethine-church-river-trail/" },
+                { name: "Quinn's Pond", icon: "🦆", birds: "Mallards, Wood Ducks, Coots, Virginia Rails", url: "https://www.cityofboise.org/departments/parks-and-recreation/parks/quinns-pond/" },
+                { name: "Barber Park", icon: "🐦", birds: "Yellow Warblers, Red-winged Blackbirds", url: "https://www.cityofboise.org/departments/parks-and-recreation/parks/barber-park/" },
+                { name: "Eagle Island", icon: "🏝️", birds: "Bald Eagles, Herons, Osprey, Kingfisher", url: "https://parksandrecreation.idaho.gov/parks/eagle-island/" },
+                { name: "Garden City", icon: "🌊", birds: "Mergansers, Goldeneyes, Bufflehead", url: "https://www.gardencityidaho.org/visitors/greenbelt" },
+                { name: "ParkCenter", icon: "🌳", birds: "Orioles, Woodpeckers, Great Horned Owls", url: "https://www.cityofboise.org/departments/parks-and-recreation/parks/boise-river-greenbelt/" },
+              ].map((spot, i) => (
+                <div
+                  key={i}
+                  onClick={() => window.open(spot.url, '_blank')}
+                  title={spot.isResource ? spot.birds : `Visit ${spot.name} info page`}
+                  style={{
+                    background: hoveredHotspot === i
+                      ? (spot.isResource ? '#e8f4e8' : '#fff')
+                      : (spot.isResource ? 'rgba(45,90,61,0.08)' : 'rgba(255,255,255,0.9)'),
+                    borderRadius: '8px',
+                    padding: '8px 12px',
+                    fontSize: '14px',
+                    color: '#2d5a3d',
+                    fontWeight: '500',
+                    flexShrink: 0,
+                    cursor: 'pointer',
+                    transition: 'background 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease',
+                    boxShadow: hoveredHotspot === i ? '0 2px 8px rgba(0,0,0,0.15)' : 'none',
+                    display: 'flex',
+                    alignItems: 'center',
+                    height: '100%',
+                    transform: hoveredHotspot === i ? 'scale(1.02)' : 'scale(1)',
+                    border: spot.isResource ? '1px dashed rgba(45,90,61,0.3)' : 'none',
+                  }}
+                  onMouseEnter={() => setHoveredHotspot(i)}
+                  onMouseLeave={() => setHoveredHotspot(null)}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap' }}>
+                    <span>{spot.icon}</span>
+                    {spot.name}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Hotspot Bird Info Popup - Rendered outside scrollable container */}
+          {hoveredHotspot !== null && (() => {
+            const hotspots = [
+              { name: "Bethine Church", birds: "Bald Eagles, Great Blue Herons, Red-tailed Hawks" },
+              { name: "Quinn's Pond", birds: "Mallards, Wood Ducks, Coots, Virginia Rails" },
+              { name: "Barber Park", birds: "Yellow Warblers, Red-winged Blackbirds" },
+              { name: "Eagle Island", birds: "Bald Eagles, Herons, Osprey, Kingfisher" },
+              { name: "Garden City", birds: "Mergansers, Goldeneyes, Bufflehead" },
+              { name: "ParkCenter", birds: "Orioles, Woodpeckers, Great Horned Owls" },
+            ];
+            const spot = hotspots[hoveredHotspot];
+            if (!spot) return null;
+            return (
+              <div
+                style={{
+                  position: 'absolute',
+                  top: '76px',
+                  left: (() => {
+                    const baseLeft = 280;
+                    const spotWidth = 130;
+                    return `${Math.min(baseLeft + (hoveredHotspot * spotWidth), window.innerWidth - 320)}px`;
+                  })(),
+                  padding: '10px 14px',
+                  background: '#fff',
+                  borderRadius: '10px',
+                  boxShadow: '0 4px 16px rgba(0,0,0,0.18)',
+                  border: '1px solid rgba(45,90,61,0.12)',
+                  fontSize: '14px',
+                  color: '#444',
+                  lineHeight: 1.5,
+                  minWidth: '200px',
+                  maxWidth: '280px',
+                  zIndex: 100,
+                }}
+              >
+                <div style={{ fontWeight: '600', color: '#2d5a3d', marginBottom: '4px', fontSize: '14px' }}>
+                  {spot.name} - Birds to see:
+                </div>
+                <div style={{ fontSize: '13px', color: '#555' }}>
+                  {spot.birds}
+                </div>
+                <div style={{ fontSize: '11px', color: '#888', marginTop: '6px', fontStyle: 'italic' }}>
+                  Click to visit park info →
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* Results Header */}
+          <div id="bird-grid" style={{
+            marginBottom: '20px',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            animation: 'fadeInUp 0.5s ease-out',
+            animationDelay: '0.1s',
+            animationFillMode: 'backwards',
+          }}>
+            <div>
+              <h2 style={{ margin: 0, color: '#1a1a1a', fontSize: '1.6rem', fontWeight: '500' }}>
+                {birdPredictions.length} Species
+              </h2>
+              <p style={{ margin: '4px 0 0 0', color: '#8a8a8a', fontSize: '14px' }}>Expected on your walk</p>
+            </div>
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              color: '#8a8a8a',
+              fontSize: '13px',
+              padding: '8px 16px',
+              background: 'rgba(255,255,255,0.6)',
+              borderRadius: '100px',
+            }}>
+              <span>↓</span> Sorted by likelihood
+            </div>
+          </div>
+
+          {/* Bird Cards - Modern Grid View */}
+          {viewMode === 'grid' ? (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '20px' }}>
+              {birdPredictions.map((bird, index) => (
+                <article
+                  key={bird.id}
+                  onClick={() => setSelectedBird(bird)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedBird(bird); }}}
+                  tabIndex="0"
+                  role="button"
+                  aria-label={`View details for ${bird.name}, ${getLikelihoodLabel(bird.likelihood)}`}
+                  style={{
+                    backgroundColor: '#fff',
+                    borderRadius: '20px',
+                    overflow: 'hidden',
+                    boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
+                    cursor: 'pointer',
+                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                    border: '1px solid rgba(0,0,0,0.04)',
+                    animation: 'fadeInUp 0.4s ease-out',
+                    animationDelay: `${Math.min(index * 0.03, 0.3)}s`,
+                    animationFillMode: 'backwards',
+                    outline: 'none',
+                  }}
+                  onFocus={(e) => {
+                    e.currentTarget.style.boxShadow = '0 0 0 3px rgba(45, 90, 61, 0.4), 0 12px 40px rgba(0,0,0,0.12)';
+                  }}
+                  onBlur={(e) => {
+                    e.currentTarget.style.boxShadow = '0 2px 12px rgba(0,0,0,0.06)';
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.transform = 'translateY(-6px) scale(1.01)';
+                    e.currentTarget.style.boxShadow = '0 12px 40px rgba(0,0,0,0.12)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.transform = 'translateY(0) scale(1)';
+                    e.currentTarget.style.boxShadow = '0 2px 12px rgba(0,0,0,0.06)';
+                  }}
+                >
+                  {/* Image with gradient overlay */}
+                  <div style={{ position: 'relative' }}>
+                    <BirdImage src={bird.image} alt={bird.name} scientificName={bird.scientific} style={{ width: '100%', height: '180px' }} />
+                    <div style={{
+                      position: 'absolute',
+                      bottom: 0,
+                      left: 0,
+                      right: 0,
+                      height: '60%',
+                      background: 'linear-gradient(to top, rgba(0,0,0,0.5) 0%, transparent 100%)',
+                      pointerEvents: 'none',
+                    }} />
+                    {/* Likelihood badge on image */}
+                    <div style={{
+                      position: 'absolute',
+                      top: '12px',
+                      right: '12px',
+                      background: getLikelihoodBg(bird.likelihood),
+                      color: '#fff',
+                      padding: '6px 12px',
+                      borderRadius: '100px',
+                      fontSize: '13px',
+                      fontWeight: '600',
+                      boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
+                    }}>
+                      {Math.round(bird.likelihood * 100)}%
+                    </div>
+                    {/* Season icon */}
+                    <div style={{
+                      position: 'absolute',
+                      bottom: '12px',
+                      left: '12px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      color: '#fff',
+                      fontSize: '12px',
+                      textShadow: '0 1px 3px rgba(0,0,0,0.3)',
+                    }}>
+                      <span>{getSeasonIcon(bird.presence)}</span>
+                      <span style={{ opacity: 0.9 }}>{bird.family}</span>
+                    </div>
+                  </div>
+
+                  {/* Content */}
+                  <div style={{ padding: '16px 18px 18px' }}>
+                    <h3 style={{
+                      margin: '0 0 4px 0',
+                      fontSize: '1.1rem',
+                      color: '#1a1a1a',
+                      fontWeight: '500',
+                    }}>
+                      {bird.name}
+                    </h3>
+                    <p style={{
+                      margin: '0 0 14px 0',
+                      fontSize: '13px',
+                      fontStyle: 'italic',
+                      color: '#8a8a8a',
+                    }}>
+                      {bird.scientific}
+                    </p>
+
+                    {/* Progress bar */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <div style={{
+                        flex: 1,
+                        height: '6px',
+                        backgroundColor: '#f0ede6',
+                        borderRadius: '3px',
+                        overflow: 'hidden',
+                      }}>
+                        <div style={{
+                          width: `${bird.likelihood * 100}%`,
+                          height: '100%',
+                          background: getLikelihoodBg(bird.likelihood),
+                          borderRadius: '3px',
+                          transition: 'width 0.5s ease-out',
+                        }} />
+                      </div>
+                      <span style={{
+                        fontSize: '12px',
+                        color: getLikelihoodColor(bird.likelihood),
+                        fontWeight: '600',
+                        minWidth: '65px',
+                        textAlign: 'right',
+                      }}>
+                        {getLikelihoodLabel(bird.likelihood)}
+                      </span>
+                    </div>
+                  </div>
+                </article>
+              ))}
+            </div>
+          ) : (
+            /* List View - Modern */
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {birdPredictions.map((bird, index) => (
+                <div
+                  key={bird.id}
+                  onClick={() => setSelectedBird(bird)}
+                  style={{
+                    backgroundColor: '#fff',
+                    borderRadius: '16px',
+                    padding: '14px 18px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '16px',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease',
+                    border: '1px solid rgba(0,0,0,0.04)',
+                    animation: 'fadeInUp 0.3s ease-out',
+                    animationDelay: `${Math.min(index * 0.02, 0.2)}s`,
+                    animationFillMode: 'backwards',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = '#f8f6f2';
+                    e.currentTarget.style.transform = 'translateX(4px)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = '#fff';
+                    e.currentTarget.style.transform = 'translateX(0)';
+                  }}
+                >
+                  <BirdImage
+                    src={bird.image}
+                    alt={bird.name}
+                    scientificName={bird.scientific}
+                    style={{ width: '56px', height: '56px', borderRadius: '14px', flexShrink: 0 }}
+                  />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontWeight: '500', color: '#1a1a1a', marginBottom: '2px' }}>{bird.name}</div>
+                    <div style={{ fontSize: '13px', color: '#8a8a8a' }}>{bird.family} · {bird.size}</div>
+                  </div>
+                  <div style={{ width: '80px', height: '6px', backgroundColor: '#f0ede6', borderRadius: '3px', overflow: 'hidden' }}>
+                    <div style={{ width: `${bird.likelihood * 100}%`, height: '100%', background: getLikelihoodBg(bird.likelihood), borderRadius: '3px' }} />
+                  </div>
+                  <div style={{
+                    background: getLikelihoodBg(bird.likelihood),
+                    color: '#fff',
+                    padding: '6px 14px',
+                    borderRadius: '100px',
+                    fontSize: '13px',
+                    fontWeight: '600',
+                    minWidth: '52px',
+                    textAlign: 'center',
+                  }}>
+                    {Math.round(bird.likelihood * 100)}%
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </main>
+
+        {/* Sidebar - Modern Glass Panel */}
+        <aside style={{
+          flex: '0 0 380px',
+          minWidth: '320px',
+          position: 'sticky',
+          top: '24px',
+          alignSelf: 'flex-start',
+          maxHeight: 'calc(100vh - 48px)',
+          overflowY: 'auto',
+        }}>
+          <div style={{
+            ...glassStyle,
+            borderRadius: '24px',
+            padding: '24px',
+            boxShadow: '0 8px 32px rgba(0,0,0,0.08)',
+            animation: selectedBird ? 'slideInRight 0.4s ease-out' : 'none',
+          }}>
+            {selectedBird ? (
+              <div>
+                {/* Close button */}
+                <button
+                  onClick={() => setSelectedBird(null)}
+                  style={{
+                    position: 'absolute',
+                    top: '16px',
+                    right: '16px',
+                    width: '36px',
+                    height: '36px',
+                    borderRadius: '50%',
+                    border: 'none',
+                    backgroundColor: 'rgba(0,0,0,0.05)',
+                    color: '#5c5c5c',
+                    fontSize: '20px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    transition: 'all 0.2s ease',
+                    zIndex: 10,
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(0,0,0,0.1)'}
+                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgba(0,0,0,0.05)'}
+                >
+                  ×
+                </button>
+
+                {/* Bird Image */}
+                <BirdImage
+                  src={selectedBird.image}
+                  alt={selectedBird.name}
+                  scientificName={selectedBird.scientific}
+                  style={{ width: '100%', height: '220px', borderRadius: '18px', marginBottom: '20px' }}
+                />
+
+                {/* Name and Scientific */}
+                <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+                  <h2 style={{
+                    margin: '0 0 4px 0',
+                    color: '#1a1a1a',
+                    fontSize: '1.6rem',
+                    fontWeight: '500',
+                  }}>
+                    {selectedBird.name}
+                  </h2>
+                  <p style={{ margin: 0, fontStyle: 'italic', color: '#8a8a8a', fontSize: '15px' }}>
+                    {selectedBird.scientific}
+                  </p>
+                </div>
+
+                {/* Likelihood Display */}
+                <div style={{
+                  background: getLikelihoodBg(selectedBird.likelihood),
+                  borderRadius: '20px',
+                  padding: '24px',
+                  marginBottom: '20px',
+                  textAlign: 'center',
+                  color: '#fff',
+                }}>
+                  <div style={{
+                    fontSize: '3rem',
+                    fontWeight: '300',
+                    fontFamily: "'Fraunces', Georgia, serif",
+                    lineHeight: 1,
+                    marginBottom: '4px',
+                  }}>
+                    {Math.round(selectedBird.likelihood * 100)}%
+                  </div>
+                  <div style={{ fontSize: '14px', opacity: 0.9 }}>chance of sighting today</div>
+                </div>
+
+                {/* Bird Call Player */}
+                <BirdCallPlayer
+                  scientificName={selectedBird.scientific}
+                  birdName={selectedBird.name}
+                  key={selectedBird.id}
+                />
+
+                {/* Description */}
+                <p style={{
+                  fontSize: '15px',
+                  lineHeight: 1.7,
+                  color: '#5c5c5c',
+                  marginBottom: '20px',
+                }}>
+                  {selectedBird.description}
+                </p>
+
+                {/* Fun Fact */}
+                {selectedBird.funFact && (
+                  <div style={{
+                    background: 'linear-gradient(135deg, #fff9e6 0%, #fff3cd 100%)',
+                    borderRadius: '16px',
+                    padding: '16px',
+                    marginBottom: '20px',
+                    border: '1px solid #ffe69c',
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+                      <span style={{ fontSize: '24px', flexShrink: 0 }}>💡</span>
+                      <div>
+                        <div style={{
+                          fontSize: '11px',
+                          fontWeight: '700',
+                          color: '#856404',
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.05em',
+                          marginBottom: '6px',
+                        }}>
+                          Did You Know?
+                        </div>
+                        <div style={{ fontSize: '14px', color: '#664d03', lineHeight: 1.6 }}>
+                          {selectedBird.funFact}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Field Marks */}
+                {selectedBird.fieldMarks && selectedBird.fieldMarks.length > 0 && (
+                  <div style={{ marginBottom: '20px' }}>
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      marginBottom: '12px',
+                    }}>
+                      <span style={{ fontSize: '18px' }}>🔍</span>
+                      <span style={{
+                        fontSize: '11px',
+                        fontWeight: '600',
+                        color: '#8a8a8a',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.05em',
+                      }}>
+                        Field Marks
+                      </span>
+                    </div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                      {selectedBird.fieldMarks.map((mark, idx) => (
+                        <span key={idx} style={{
+                          backgroundColor: '#f0f7ff',
+                          color: '#2c5282',
+                          padding: '6px 12px',
+                          borderRadius: '8px',
+                          fontSize: '13px',
+                          fontWeight: '500',
+                          border: '1px solid #bee3f8',
+                        }}>
+                          {mark}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Behavior */}
+                {selectedBird.behavior && (
+                  <div style={{
+                    backgroundColor: '#f8f6f2',
+                    borderRadius: '14px',
+                    padding: '14px 16px',
+                    marginBottom: '20px',
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+                      <span style={{ fontSize: '18px' }}>🦅</span>
+                      <div>
+                        <div style={{
+                          fontSize: '11px',
+                          fontWeight: '600',
+                          color: '#8a8a8a',
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.05em',
+                          marginBottom: '6px',
+                        }}>
+                          Behavior
+                        </div>
+                        <div style={{ fontSize: '14px', color: '#5c5c5c', lineHeight: 1.6 }}>
+                          {selectedBird.behavior}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Size Info */}
+                {selectedBird.lengthInches && selectedBird.wingspanInches && (
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: '1fr 1fr',
+                    gap: '10px',
+                    marginBottom: '20px',
+                  }}>
+                    <div style={{
+                      background: 'linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%)',
+                      borderRadius: '12px',
+                      padding: '14px',
+                      textAlign: 'center',
+                    }}>
+                      <div style={{ fontSize: '22px', marginBottom: '4px' }}>📏</div>
+                      <div style={{ fontSize: '18px', fontWeight: '600', color: '#2d5a3d' }}>
+                        {selectedBird.lengthInches[0]}-{selectedBird.lengthInches[1]}"
+                      </div>
+                      <div style={{ fontSize: '11px', color: '#5c5c5c', textTransform: 'uppercase' }}>Length</div>
+                    </div>
+                    <div style={{
+                      background: 'linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%)',
+                      borderRadius: '12px',
+                      padding: '14px',
+                      textAlign: 'center',
+                    }}>
+                      <div style={{ fontSize: '22px', marginBottom: '4px' }}>🦋</div>
+                      <div style={{ fontSize: '18px', fontWeight: '600', color: '#1565c0' }}>
+                        {selectedBird.wingspanInches[0]}-{selectedBird.wingspanInches[1]}"
+                      </div>
+                      <div style={{ fontSize: '11px', color: '#5c5c5c', textTransform: 'uppercase' }}>Wingspan</div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Look-alikes */}
+                {selectedBird.lookAlikes && selectedBird.lookAlikes.length > 0 && (
+                  <div style={{
+                    backgroundColor: '#fef2f2',
+                    borderRadius: '14px',
+                    padding: '14px 16px',
+                    marginBottom: '20px',
+                    border: '1px solid #fecaca',
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+                      <span style={{ fontSize: '18px' }}>👀</span>
+                      <div>
+                        <div style={{
+                          fontSize: '11px',
+                          fontWeight: '600',
+                          color: '#991b1b',
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.05em',
+                          marginBottom: '8px',
+                        }}>
+                          Similar Species
+                        </div>
+                        {selectedBird.lookAlikes.map((bird, idx) => (
+                          <div key={idx} style={{
+                            fontSize: '13px',
+                            color: '#7f1d1d',
+                            lineHeight: 1.6,
+                            marginBottom: idx < selectedBird.lookAlikes.length - 1 ? '4px' : 0,
+                          }}>
+                            • {bird}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Nesting Info */}
+                {selectedBird.nestingInfo && (
+                  <div style={{
+                    backgroundColor: '#fdf4ff',
+                    borderRadius: '14px',
+                    padding: '14px 16px',
+                    marginBottom: '20px',
+                    border: '1px solid #f0abfc',
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+                      <span style={{ fontSize: '18px' }}>🪺</span>
+                      <div>
+                        <div style={{
+                          fontSize: '11px',
+                          fontWeight: '600',
+                          color: '#86198f',
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.05em',
+                          marginBottom: '6px',
+                        }}>
+                          Nesting
+                        </div>
+                        <div style={{ fontSize: '13px', color: '#701a75', lineHeight: 1.6 }}>
+                          {selectedBird.nestingInfo}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Conservation Status */}
+                {selectedBird.conservationStatus && (
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '10px',
+                    backgroundColor: selectedBird.conservationStatus === 'Least Concern' ? '#ecfdf5' : '#fef9c3',
+                    borderRadius: '10px',
+                    padding: '10px 14px',
+                    marginBottom: '20px',
+                  }}>
+                    <span style={{ fontSize: '16px' }}>
+                      {selectedBird.conservationStatus === 'Least Concern' ? '✅' : '⚠️'}
+                    </span>
+                    <span style={{
+                      fontSize: '13px',
+                      fontWeight: '500',
+                      color: selectedBird.conservationStatus === 'Least Concern' ? '#065f46' : '#92400e',
+                    }}>
+                      {selectedBird.conservationStatus}
+                    </span>
+                  </div>
+                )}
+
+                {/* eBird Link */}
+                {selectedBird.ebirdCode && (
+                  <a
+                    href={`https://ebird.org/species/${selectedBird.ebirdCode}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '10px',
+                      backgroundColor: '#1a1a1a',
+                      color: '#fff',
+                      padding: '14px 20px',
+                      borderRadius: '12px',
+                      textDecoration: 'none',
+                      fontSize: '14px',
+                      fontWeight: '500',
+                      marginBottom: '20px',
+                      transition: 'all 0.2s ease',
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#333'}
+                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#1a1a1a'}
+                  >
+                    <span>🌐</span>
+                    <span>View on eBird</span>
+                    <span style={{ opacity: 0.5 }}>→</span>
+                  </a>
+                )}
+
+                {/* Info Grid */}
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: '1fr 1fr',
+                  gap: '12px',
+                  marginBottom: '20px',
+                }}>
+                  {[
+                    { label: 'Family', value: selectedBird.family },
+                    { label: 'Size', value: selectedBird.size, capitalize: true },
+                    { label: 'Diet', value: selectedBird.diet, capitalize: true },
+                    { label: 'Season', value: selectedBird.presence === 'year-round' ? 'Year-round' : selectedBird.presence, capitalize: true },
+                  ].map(item => (
+                    <div key={item.label} style={{
+                      backgroundColor: '#f8f6f2',
+                      borderRadius: '12px',
+                      padding: '12px 14px',
+                    }}>
+                      <div style={{
+                        fontSize: '11px',
+                        fontWeight: '600',
+                        color: '#8a8a8a',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.05em',
+                        marginBottom: '4px',
+                      }}>
+                        {item.label}
+                      </div>
+                      <div style={{
+                        fontSize: '14px',
+                        color: '#1a1a1a',
+                        textTransform: item.capitalize ? 'capitalize' : 'none',
+                      }}>
+                        {item.value}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Habitats */}
+                <div style={{ marginBottom: '16px' }}>
+                  <div style={{
+                    fontSize: '11px',
+                    fontWeight: '600',
+                    color: '#8a8a8a',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.05em',
+                    marginBottom: '10px',
+                  }}>
+                    Habitats
+                  </div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                    {selectedBird.habitat.map(h => (
+                      <span key={h} style={{
+                        backgroundColor: '#e8f0e5',
+                        color: '#2d5a3d',
+                        padding: '6px 14px',
+                        borderRadius: '100px',
+                        fontSize: '13px',
+                        fontWeight: '500',
+                        textTransform: 'capitalize',
+                      }}>
+                        {h}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Best Times */}
+                <div style={{ marginBottom: '16px' }}>
+                  <div style={{
+                    fontSize: '11px',
+                    fontWeight: '600',
+                    color: '#8a8a8a',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.05em',
+                    marginBottom: '10px',
+                  }}>
+                    Best Times
+                  </div>
+                  <div style={{ fontSize: '14px', color: '#5c5c5c' }}>
+                    {selectedBird.peakHours.map(h => h === 12 ? '12 PM' : h > 12 ? `${h-12} PM` : `${h} AM`).join(', ')}
+                  </div>
+                </div>
+
+                {/* Season Info */}
+                <div style={{
+                  backgroundColor: '#f8f6f2',
+                  borderRadius: '16px',
+                  padding: '16px',
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  gap: '12px',
+                }}>
+                  <span style={{ fontSize: '24px' }}>{getSeasonIcon(selectedBird.presence)}</span>
+                  <div>
+                    <div style={{ fontWeight: '500', color: '#2d5a3d', marginBottom: '4px' }}>
+                      {getSeasonLabel(selectedBird.presence)}
+                    </div>
+                    {selectedBird.months && (
+                      <div style={{ fontSize: '13px', color: '#8a8a8a' }}>
+                        Present: {selectedBird.months.map(m => ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][m-1]).join(', ')}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              /* Empty State */
+              <div style={{
+                textAlign: 'center',
+                padding: '60px 20px',
+              }}>
+                <div style={{
+                  fontSize: '4rem',
+                  marginBottom: '16px',
+                  animation: 'float 3s ease-in-out infinite',
+                }}>
+                  🔍
+                </div>
+                <h3 style={{
+                  color: '#5c5c5c',
+                  fontWeight: '400',
+                  fontSize: '1.2rem',
+                  margin: '0 0 8px 0',
+                }}>
+                  Select a Bird
+                </h3>
+                <p style={{
+                  color: '#8a8a8a',
+                  fontSize: '14px',
+                  margin: 0,
+                  lineHeight: 1.6,
+                }}>
+                  Click on any species card to view detailed information, photos, and listen to calls.
+                </p>
+              </div>
+            )}
+          </div>
+        </aside>
+      </div>
+
+      {/* Footer - Modern */}
+      <footer style={{
+        background: 'linear-gradient(135deg, #1a3a2a 0%, #2d5a3d 100%)',
+        color: '#fff',
+        padding: '48px 24px',
+        textAlign: 'center',
+        marginTop: '48px',
+      }}>
+        <div style={{ maxWidth: '600px', margin: '0 auto' }}>
+          <div style={{ fontSize: '2rem', marginBottom: '16px' }}>🪶</div>
+          <p style={{
+            margin: '0 0 12px 0',
+            fontSize: '15px',
+            opacity: 0.9,
+            lineHeight: 1.6,
+          }}>
+            Data based on eBird observations for the Boise River Greenbelt area
+          </p>
+          <div style={{
+            display: 'flex',
+            justifyContent: 'center',
+            gap: '24px',
+            flexWrap: 'wrap',
+            fontSize: '13px',
+            opacity: 0.7,
+            marginBottom: '20px',
+          }}>
+            <span>📷 Wikimedia Commons</span>
+            <span>🔊 xeno-canto.org</span>
+            <span>🌤️ Open-Meteo</span>
+          </div>
+          <p style={{
+            margin: 0,
+            fontSize: '13px',
+            opacity: 0.6,
+            fontStyle: 'italic',
+          }}>
+            Happy birding on the Greenbelt!
+          </p>
+        </div>
+      </footer>
+    </div>
+  );
+};
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<BoiseRiverBirdGuide />);
+  </script>
+</body>
+</html>
