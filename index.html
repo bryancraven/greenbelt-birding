@@ -100,6 +100,16 @@
       50% { background-position: 100% 50%; }
     }
 
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    @keyframes modalSlideUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
     .bird-image {
       width: 100%;
       height: 100%;
@@ -2426,7 +2436,18 @@ const BoiseRiverBirdGuide = () => {
               ].map((spot, i) => (
                 <div
                   key={i}
-                  onClick={() => window.open(spot.url, '_blank')}
+                  onClick={() => {
+                    // On mobile: first tap shows tooltip, second tap navigates
+                    if (isMobile) {
+                      if (hoveredHotspot === i) {
+                        window.open(spot.url, '_blank');
+                      } else {
+                        setHoveredHotspot(i);
+                      }
+                    } else {
+                      window.open(spot.url, '_blank');
+                    }
+                  }}
                   title={spot.isResource ? spot.birds : `Visit ${spot.name} info page`}
                   style={{
                     background: hoveredHotspot === i
@@ -2503,7 +2524,7 @@ const BoiseRiverBirdGuide = () => {
                   {spot.birds}
                 </div>
                 <div style={{ fontSize: '11px', color: '#888', marginTop: '6px', fontStyle: 'italic' }}>
-                  Click to visit park info →
+                  {isMobile ? 'Tap again to visit →' : 'Click to visit park info →'}
                 </div>
               </div>
             );
@@ -2734,7 +2755,8 @@ const BoiseRiverBirdGuide = () => {
           )}
         </main>
 
-        {/* Sidebar - Modern Glass Panel */}
+        {/* Sidebar - Desktop Only */}
+        {!isMobile && (
         <aside style={{
           flex: '0 0 380px',
           minWidth: '320px',
@@ -3234,6 +3256,480 @@ const BoiseRiverBirdGuide = () => {
             )}
           </div>
         </aside>
+        )}
+
+        {/* Mobile Bird Detail Modal */}
+        {isMobile && selectedBird && (
+          <div
+            style={{
+              position: 'fixed',
+              inset: 0,
+              zIndex: 1000,
+              background: 'rgba(0,0,0,0.5)',
+              animation: 'fadeIn 0.2s ease-out',
+            }}
+            onClick={() => setSelectedBird(null)}
+          >
+            <div
+              style={{
+                position: 'relative',
+                width: '100%',
+                height: '100%',
+                background: '#fff',
+                overflowY: 'auto',
+                animation: 'modalSlideUp 0.3s ease-out',
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Close button - fixed at top right */}
+              <button
+                onClick={() => setSelectedBird(null)}
+                style={{
+                  position: 'fixed',
+                  top: '16px',
+                  right: '16px',
+                  zIndex: 1001,
+                  width: '44px',
+                  height: '44px',
+                  borderRadius: '50%',
+                  background: 'rgba(0,0,0,0.7)',
+                  color: '#fff',
+                  border: 'none',
+                  fontSize: '24px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
+                }}
+              >
+                ×
+              </button>
+
+              {/* Modal Content */}
+              <div style={{ padding: '20px', paddingTop: '24px' }}>
+                {/* Bird Image */}
+                <BirdImage
+                  src={selectedBird.image}
+                  alt={selectedBird.name}
+                  scientificName={selectedBird.scientific}
+                  style={{ width: '100%', height: '240px', borderRadius: '18px', marginBottom: '20px' }}
+                />
+
+                {/* Name and Scientific */}
+                <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+                  <h2 style={{
+                    margin: '0 0 4px 0',
+                    color: '#1a1a1a',
+                    fontSize: '1.6rem',
+                    fontWeight: '500',
+                  }}>
+                    {selectedBird.name}
+                  </h2>
+                  <p style={{ margin: 0, fontStyle: 'italic', color: '#8a8a8a', fontSize: '15px' }}>
+                    {selectedBird.scientific}
+                  </p>
+                </div>
+
+                {/* Likelihood Display */}
+                <div style={{
+                  background: getLikelihoodBg(selectedBird.likelihood),
+                  borderRadius: '20px',
+                  padding: '24px',
+                  marginBottom: '20px',
+                  textAlign: 'center',
+                  color: '#fff',
+                }}>
+                  <div style={{
+                    fontSize: '3rem',
+                    fontWeight: '300',
+                    fontFamily: "'Fraunces', Georgia, serif",
+                    lineHeight: 1,
+                    marginBottom: '4px',
+                  }}>
+                    {Math.round(selectedBird.likelihood * 100)}%
+                  </div>
+                  <div style={{ fontSize: '14px', opacity: 0.9 }}>chance of sighting today</div>
+                </div>
+
+                {/* Bird Call Player */}
+                <BirdCallPlayer
+                  scientificName={selectedBird.scientific}
+                  birdName={selectedBird.name}
+                  key={`mobile-${selectedBird.id}`}
+                />
+
+                {/* Description */}
+                <p style={{
+                  fontSize: '15px',
+                  lineHeight: 1.7,
+                  color: '#5c5c5c',
+                  marginBottom: '20px',
+                }}>
+                  {selectedBird.description}
+                </p>
+
+                {/* Fun Fact */}
+                {selectedBird.funFact && (
+                  <div style={{
+                    background: 'linear-gradient(135deg, #fff9e6 0%, #fff3cd 100%)',
+                    borderRadius: '16px',
+                    padding: '16px',
+                    marginBottom: '20px',
+                    border: '1px solid #ffe69c',
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+                      <span style={{ fontSize: '24px', flexShrink: 0 }}>💡</span>
+                      <div>
+                        <div style={{
+                          fontSize: '11px',
+                          fontWeight: '700',
+                          color: '#856404',
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.05em',
+                          marginBottom: '6px',
+                        }}>
+                          Did You Know?
+                        </div>
+                        <div style={{ fontSize: '14px', color: '#664d03', lineHeight: 1.6 }}>
+                          {selectedBird.funFact}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Field Marks */}
+                {selectedBird.fieldMarks && selectedBird.fieldMarks.length > 0 && (
+                  <div style={{ marginBottom: '20px' }}>
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      marginBottom: '12px',
+                    }}>
+                      <span style={{ fontSize: '18px' }}>🔍</span>
+                      <span style={{
+                        fontSize: '11px',
+                        fontWeight: '600',
+                        color: '#8a8a8a',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.05em',
+                      }}>
+                        Field Marks
+                      </span>
+                    </div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                      {selectedBird.fieldMarks.map((mark, idx) => (
+                        <span key={idx} style={{
+                          backgroundColor: '#f0f7ff',
+                          color: '#2c5282',
+                          padding: '6px 12px',
+                          borderRadius: '8px',
+                          fontSize: '13px',
+                          fontWeight: '500',
+                          border: '1px solid #bee3f8',
+                        }}>
+                          {mark}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Behavior */}
+                {selectedBird.behavior && (
+                  <div style={{
+                    backgroundColor: '#f8f6f2',
+                    borderRadius: '14px',
+                    padding: '14px 16px',
+                    marginBottom: '20px',
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+                      <span style={{ fontSize: '18px' }}>🦅</span>
+                      <div>
+                        <div style={{
+                          fontSize: '11px',
+                          fontWeight: '600',
+                          color: '#8a8a8a',
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.05em',
+                          marginBottom: '6px',
+                        }}>
+                          Behavior
+                        </div>
+                        <div style={{ fontSize: '14px', color: '#5c5c5c', lineHeight: 1.6 }}>
+                          {selectedBird.behavior}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Size Info */}
+                {selectedBird.lengthInches && selectedBird.wingspanInches && (
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: '1fr 1fr',
+                    gap: '10px',
+                    marginBottom: '20px',
+                  }}>
+                    <div style={{
+                      background: 'linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%)',
+                      borderRadius: '12px',
+                      padding: '14px',
+                      textAlign: 'center',
+                    }}>
+                      <div style={{ fontSize: '22px', marginBottom: '4px' }}>📏</div>
+                      <div style={{ fontSize: '18px', fontWeight: '600', color: '#2d5a3d' }}>
+                        {selectedBird.lengthInches[0]}-{selectedBird.lengthInches[1]}"
+                      </div>
+                      <div style={{ fontSize: '11px', color: '#5c5c5c', textTransform: 'uppercase' }}>Length</div>
+                    </div>
+                    <div style={{
+                      background: 'linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%)',
+                      borderRadius: '12px',
+                      padding: '14px',
+                      textAlign: 'center',
+                    }}>
+                      <div style={{ fontSize: '22px', marginBottom: '4px' }}>🦋</div>
+                      <div style={{ fontSize: '18px', fontWeight: '600', color: '#1565c0' }}>
+                        {selectedBird.wingspanInches[0]}-{selectedBird.wingspanInches[1]}"
+                      </div>
+                      <div style={{ fontSize: '11px', color: '#5c5c5c', textTransform: 'uppercase' }}>Wingspan</div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Look-alikes */}
+                {selectedBird.lookAlikes && selectedBird.lookAlikes.length > 0 && (
+                  <div style={{
+                    backgroundColor: '#fef2f2',
+                    borderRadius: '14px',
+                    padding: '14px 16px',
+                    marginBottom: '20px',
+                    border: '1px solid #fecaca',
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+                      <span style={{ fontSize: '18px' }}>👀</span>
+                      <div>
+                        <div style={{
+                          fontSize: '11px',
+                          fontWeight: '600',
+                          color: '#991b1b',
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.05em',
+                          marginBottom: '8px',
+                        }}>
+                          Similar Species
+                        </div>
+                        {selectedBird.lookAlikes.map((bird, idx) => (
+                          <div key={idx} style={{
+                            fontSize: '13px',
+                            color: '#7f1d1d',
+                            lineHeight: 1.6,
+                            marginBottom: idx < selectedBird.lookAlikes.length - 1 ? '4px' : 0,
+                          }}>
+                            • {bird}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Nesting Info */}
+                {selectedBird.nestingInfo && (
+                  <div style={{
+                    backgroundColor: '#fdf4ff',
+                    borderRadius: '14px',
+                    padding: '14px 16px',
+                    marginBottom: '20px',
+                    border: '1px solid #f0abfc',
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+                      <span style={{ fontSize: '18px' }}>🪺</span>
+                      <div>
+                        <div style={{
+                          fontSize: '11px',
+                          fontWeight: '600',
+                          color: '#86198f',
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.05em',
+                          marginBottom: '6px',
+                        }}>
+                          Nesting
+                        </div>
+                        <div style={{ fontSize: '13px', color: '#701a75', lineHeight: 1.6 }}>
+                          {selectedBird.nestingInfo}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Conservation Status */}
+                {selectedBird.conservationStatus && (
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '10px',
+                    backgroundColor: selectedBird.conservationStatus === 'Least Concern' ? '#ecfdf5' : '#fef9c3',
+                    borderRadius: '10px',
+                    padding: '10px 14px',
+                    marginBottom: '20px',
+                  }}>
+                    <span style={{ fontSize: '16px' }}>
+                      {selectedBird.conservationStatus === 'Least Concern' ? '✅' : '⚠️'}
+                    </span>
+                    <span style={{
+                      fontSize: '13px',
+                      fontWeight: '500',
+                      color: selectedBird.conservationStatus === 'Least Concern' ? '#065f46' : '#92400e',
+                    }}>
+                      {selectedBird.conservationStatus}
+                    </span>
+                  </div>
+                )}
+
+                {/* eBird Link */}
+                {selectedBird.ebirdCode && (
+                  <a
+                    href={`https://ebird.org/species/${selectedBird.ebirdCode}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '10px',
+                      backgroundColor: '#1a1a1a',
+                      color: '#fff',
+                      padding: '14px 20px',
+                      borderRadius: '12px',
+                      textDecoration: 'none',
+                      fontSize: '14px',
+                      fontWeight: '500',
+                      marginBottom: '20px',
+                    }}
+                  >
+                    <span>🌐</span>
+                    <span>View on eBird</span>
+                    <span style={{ opacity: 0.5 }}>→</span>
+                  </a>
+                )}
+
+                {/* Info Grid */}
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: '1fr 1fr',
+                  gap: '12px',
+                  marginBottom: '20px',
+                }}>
+                  {[
+                    { label: 'Family', value: selectedBird.family },
+                    { label: 'Size', value: selectedBird.size, capitalize: true },
+                    { label: 'Diet', value: selectedBird.diet, capitalize: true },
+                    { label: 'Season', value: selectedBird.presence === 'year-round' ? 'Year-round' : selectedBird.presence, capitalize: true },
+                  ].map(item => (
+                    <div key={item.label} style={{
+                      backgroundColor: '#f8f6f2',
+                      borderRadius: '12px',
+                      padding: '12px 14px',
+                    }}>
+                      <div style={{
+                        fontSize: '11px',
+                        fontWeight: '600',
+                        color: '#8a8a8a',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.05em',
+                        marginBottom: '4px',
+                      }}>
+                        {item.label}
+                      </div>
+                      <div style={{
+                        fontSize: '14px',
+                        color: '#1a1a1a',
+                        textTransform: item.capitalize ? 'capitalize' : 'none',
+                      }}>
+                        {item.value}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Habitats */}
+                <div style={{ marginBottom: '16px' }}>
+                  <div style={{
+                    fontSize: '11px',
+                    fontWeight: '600',
+                    color: '#8a8a8a',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.05em',
+                    marginBottom: '10px',
+                  }}>
+                    Habitats
+                  </div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                    {selectedBird.habitat.map(h => (
+                      <span key={h} style={{
+                        backgroundColor: '#e8f0e5',
+                        color: '#2d5a3d',
+                        padding: '6px 14px',
+                        borderRadius: '100px',
+                        fontSize: '13px',
+                        fontWeight: '500',
+                        textTransform: 'capitalize',
+                      }}>
+                        {h}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Best Times */}
+                <div style={{ marginBottom: '16px' }}>
+                  <div style={{
+                    fontSize: '11px',
+                    fontWeight: '600',
+                    color: '#8a8a8a',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.05em',
+                    marginBottom: '10px',
+                  }}>
+                    Best Times
+                  </div>
+                  <div style={{ fontSize: '14px', color: '#5c5c5c' }}>
+                    {selectedBird.peakHours.map(h => h === 12 ? '12 PM' : h > 12 ? `${h-12} PM` : `${h} AM`).join(', ')}
+                  </div>
+                </div>
+
+                {/* Season Info */}
+                <div style={{
+                  backgroundColor: '#f8f6f2',
+                  borderRadius: '16px',
+                  padding: '16px',
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  gap: '12px',
+                  marginBottom: '40px',
+                }}>
+                  <span style={{ fontSize: '24px' }}>{getSeasonIcon(selectedBird.presence)}</span>
+                  <div>
+                    <div style={{ fontWeight: '500', color: '#2d5a3d', marginBottom: '4px' }}>
+                      {getSeasonLabel(selectedBird.presence)}
+                    </div>
+                    {selectedBird.months && (
+                      <div style={{ fontSize: '13px', color: '#8a8a8a' }}>
+                        Present: {selectedBird.months.map(m => ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][m-1]).join(', ')}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Footer - Modern */}
