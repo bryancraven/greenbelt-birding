@@ -3,6 +3,7 @@
 
 # Wrangler local files
 worker/.wrangler/
+.wrangler/
 
 # Old/unused files
 boise-bird-guide.jsx
@@ -15,3 +16,8 @@ CLAUDE.md
 
 # Local notes
 bird-prediction-algorithm.md
+
+# Local preview artifacts
+node_modules/
+output/
+*.log

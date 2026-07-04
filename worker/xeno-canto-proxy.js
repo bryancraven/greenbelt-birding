@@ -40,8 +40,26 @@ export default {
     const url = new URL(request.url);
     const species = url.searchParams.get('species');
 
+    if (request.method !== 'GET') {
+      return new Response(JSON.stringify({ error: 'Method not allowed' }), {
+        status: 405,
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': corsOrigin,
+          'Allow': 'GET, OPTIONS'
+        }
+      });
+    }
+
     if (!species) {
       return new Response(JSON.stringify({ error: 'Missing species parameter' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': corsOrigin }
+      });
+    }
+
+    if (!/^[A-Za-z .'-]+$/.test(species)) {
+      return new Response(JSON.stringify({ error: 'Invalid species parameter' }), {
         status: 400,
         headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': corsOrigin }
       });
@@ -62,7 +80,9 @@ export default {
     }
 
     // Not cached, fetch from xeno-canto
-    const apiUrl = `https://xeno-canto.org/api/3/recordings?query=sp:"${encodeURIComponent(species)}"+q:A&key=${env.XENO_CANTO_API_KEY}`;
+    const apiParams = new URLSearchParams({ query: `sp:"${species}" q:A` });
+    if (env.XENO_CANTO_API_KEY) apiParams.set('key', env.XENO_CANTO_API_KEY);
+    const apiUrl = `https://xeno-canto.org/api/3/recordings?${apiParams.toString()}`;
 
     try {
       const response = await fetch(apiUrl);

@@ -4,11 +4,14 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Boise River Greenbelt Bird Guide</title>
+  <link rel="canonical" href="https://bryancraven.github.io/greenbelt-birding/">
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=Fraunces:ital,opsz,wght@0,9..144,100..900;1,9..144,100..900&display=swap" rel="stylesheet">
   <meta name="description" content="Discover which birds you might see on the Boise River Greenbelt with real-time predictions based on weather and time of day. Interactive guide featuring 80+ species with calls, photos, and identification tips.">
   <meta property="og:title" content="Boise River Greenbelt Bird Guide">
   <meta property="og:description" content="Real-time bird sighting predictions for Idaho's premier urban trail">
   <meta property="og:type" content="website">
+  <meta property="og:url" content="https://bryancraven.github.io/greenbelt-birding/">
+  <meta name="twitter:card" content="summary">
   <meta name="theme-color" content="#2d5a3d">
   <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
@@ -176,6 +179,41 @@ const verifyBirdImages = async () => {
 };
 window.verifyBirdImages = verifyBirdImages;
 
+const RECORDING_PROXY_URL = 'https://xeno-canto-proxy.spudbc.workers.dev';
+const recordingCache = new Map();
+
+const normalizeRecording = (r) => ({
+  id: r.id,
+  url: r.file,
+  type: r.type || 'call',
+  location: r.loc,
+  recordist: r.rec,
+  quality: r.q,
+  length: r.length,
+  date: r.date,
+});
+
+const getPreferredRecording = (recordings) => {
+  if (!recordings?.length) return null;
+  return recordings.find(r => (r.type || '').toLowerCase().includes('song')) ||
+    recordings.find(r => (r.type || '').toLowerCase().includes('call')) ||
+    recordings[0];
+};
+
+const fetchBirdRecordings = async (scientificName, signal) => {
+  if (recordingCache.has(scientificName)) return recordingCache.get(scientificName);
+
+  const response = await fetch(`${RECORDING_PROXY_URL}?species=${encodeURIComponent(scientificName)}`, { signal });
+  if (!response.ok) throw new Error(`Server error: ${response.status}`);
+  const data = await response.json();
+  const recordings = (data.recordings || [])
+    .filter(r => r.file)
+    .slice(0, 8)
+    .map(normalizeRecording);
+  recordingCache.set(scientificName, recordings);
+  return recordings;
+};
+
 // Modern Audio Miniplayer Component for Bird Calls
 const BirdCallPlayer = ({ scientificName, birdName }) => {
   const [recordings, setRecordings] = useState([]);
@@ -200,23 +238,8 @@ const BirdCallPlayer = ({ scientificName, birdName }) => {
       setRecordings([]);
       setCurrentTrack(0);
       try {
-        const proxyUrl = 'https://xeno-canto-proxy.spudbc.workers.dev';
-        const response = await fetch(`${proxyUrl}?species=${encodeURIComponent(scientificName)}`, {
-          signal: abortController.signal
-        });
-        if (!response.ok) throw new Error(`Server error: ${response.status}`);
-        const data = await response.json();
-        if (data.recordings && data.recordings.length > 0) {
-          const topRecordings = data.recordings.slice(0, 8).map(r => ({
-            id: r.id,
-            url: r.file,
-            type: r.type || 'call',
-            location: r.loc,
-            recordist: r.rec,
-            quality: r.q,
-            length: r.length,
-            date: r.date,
-          }));
+        const topRecordings = await fetchBirdRecordings(scientificName, abortController.signal);
+        if (topRecordings.length > 0) {
           setRecordings(topRecordings);
         } else {
           setError('No recordings available for this species');
@@ -1867,6 +1890,466 @@ const BirdImage = ({ src, alt, scientificName, className, style, showCredits = t
   return imageContent;
 };
 
+const shuffleItems = (items) => {
+  const copy = [...items];
+  for (let i = copy.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
+  return copy;
+};
+
+const CallFlashcards = ({ candidates, onSelectBird, getLikelihoodBg, getLikelihoodLabel, getSeasonIcon }) => {
+  const audioRef = React.useRef(null);
+  const [activeBirdId, setActiveBirdId] = useState(null);
+  const [loadingBirdId, setLoadingBirdId] = useState(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [currentRecording, setCurrentRecording] = useState(null);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    return () => {
+      if (audioRef.current) audioRef.current.pause();
+    };
+  }, []);
+
+  const playBird = async (bird) => {
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    if (activeBirdId === bird.id && isPlaying) {
+      audio.pause();
+      setIsPlaying(false);
+      return;
+    }
+
+    setError(null);
+    setLoadingBirdId(bird.id);
+
+    try {
+      const recordings = await fetchBirdRecordings(bird.scientific);
+      const recording = getPreferredRecording(recordings);
+      if (!recording) throw new Error('No recording available');
+
+      audio.src = recording.url;
+      audio.currentTime = 0;
+      setActiveBirdId(bird.id);
+      setCurrentRecording({ ...recording, birdName: bird.name });
+      await audio.play();
+      setIsPlaying(true);
+    } catch (err) {
+      setError(`${bird.name}: ${err.message === 'Failed to fetch' ? 'audio unavailable' : 'could not play audio'}`);
+      setIsPlaying(false);
+    } finally {
+      setLoadingBirdId(null);
+    }
+  };
+
+  if (!candidates.length) {
+    return (
+      <div style={{ background: '#fff', borderRadius: '16px', padding: '28px', textAlign: 'center', color: '#5c5c5c' }}>
+        No likely call candidates for the selected date and time.
+      </div>
+    );
+  }
+
+  return (
+    <section style={{ animation: 'fadeInUp 0.4s ease-out' }}>
+      <audio ref={audioRef} onEnded={() => setIsPlaying(false)} onPause={() => setIsPlaying(false)} />
+
+      <div style={{ marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: '16px', flexWrap: 'wrap' }}>
+        <div>
+          <h2 style={{ margin: 0, color: '#1a1a1a', fontSize: '1.6rem', fontWeight: '500' }}>Call Flashcards</h2>
+          <p style={{ margin: '4px 0 0 0', color: '#8a8a8a', fontSize: '14px' }}>Tap a likely bird to hear a representative call or song.</p>
+        </div>
+        {currentRecording && (
+          <div style={{
+            background: 'rgba(45,90,61,0.08)',
+            color: '#2d5a3d',
+            padding: '8px 14px',
+            borderRadius: '100px',
+            fontSize: '13px',
+            fontWeight: '600',
+          }}>
+            {isPlaying ? 'Playing' : 'Loaded'}: {currentRecording.birdName}
+          </div>
+        )}
+      </div>
+
+      {error && (
+        <div style={{
+          marginBottom: '14px',
+          background: '#fff7ed',
+          color: '#9a3412',
+          border: '1px solid #fed7aa',
+          borderRadius: '10px',
+          padding: '10px 12px',
+          fontSize: '14px',
+        }}>
+          {error}
+        </div>
+      )}
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '16px' }}>
+        {candidates.map((bird, index) => {
+          const active = activeBirdId === bird.id;
+          const loading = loadingBirdId === bird.id;
+          return (
+            <article
+              key={bird.id}
+              onClick={() => playBird(bird)}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); playBird(bird); }}}
+              tabIndex="0"
+              role="button"
+              aria-label={`${active && isPlaying ? 'Pause' : 'Play'} ${bird.name} call`}
+              style={{
+                background: active ? 'linear-gradient(135deg, #fff 0%, #eef7ed 100%)' : '#fff',
+                borderRadius: '16px',
+                overflow: 'hidden',
+                boxShadow: active ? '0 10px 28px rgba(45,90,61,0.18)' : '0 2px 12px rgba(0,0,0,0.06)',
+                border: active ? '2px solid #7d9a6f' : '1px solid rgba(0,0,0,0.04)',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+                animation: 'fadeInUp 0.35s ease-out',
+                animationDelay: `${Math.min(index * 0.02, 0.2)}s`,
+                animationFillMode: 'backwards',
+              }}
+            >
+              <div style={{ position: 'relative' }}>
+                <BirdImage src={bird.image} alt={bird.name} scientificName={bird.scientific} style={{ width: '100%', height: '140px' }} showCredits={false} />
+                <div style={{
+                  position: 'absolute',
+                  inset: 0,
+                  background: 'linear-gradient(to top, rgba(0,0,0,0.45), transparent 65%)',
+                  pointerEvents: 'none',
+                }} />
+                <div style={{
+                  position: 'absolute',
+                  top: '10px',
+                  right: '10px',
+                  width: '42px',
+                  height: '42px',
+                  borderRadius: '50%',
+                  background: active && isPlaying ? '#2d5a3d' : 'rgba(255,255,255,0.92)',
+                  color: active && isPlaying ? '#fff' : '#2d5a3d',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '18px',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
+                }}>
+                  {loading ? '...' : active && isPlaying ? '||' : '▶'}
+                </div>
+                <div style={{
+                  position: 'absolute',
+                  bottom: '10px',
+                  left: '10px',
+                  right: '10px',
+                  color: '#fff',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  gap: '8px',
+                  alignItems: 'center',
+                  fontSize: '12px',
+                  textShadow: '0 1px 3px rgba(0,0,0,0.35)',
+                }}>
+                  <span>{getSeasonIcon(bird.presence)} {bird.family}</span>
+                  <span>{Math.round(bird.likelihood * 100)}%</span>
+                </div>
+              </div>
+
+              <div style={{ padding: '14px 16px 16px' }}>
+                <h3 style={{ margin: '0 0 4px 0', fontSize: '1.05rem', color: '#1a1a1a', fontWeight: '500' }}>{bird.name}</h3>
+                <p style={{ margin: '0 0 12px 0', fontSize: '13px', color: '#8a8a8a', fontStyle: 'italic' }}>{bird.scientific}</p>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px' }}>
+                  <span style={{
+                    background: getLikelihoodBg(bird.likelihood),
+                    color: '#fff',
+                    padding: '5px 10px',
+                    borderRadius: '100px',
+                    fontSize: '12px',
+                    fontWeight: '600',
+                  }}>
+                    {getLikelihoodLabel(bird.likelihood)}
+                  </span>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onSelectBird(bird); }}
+                    style={{
+                      border: 'none',
+                      background: 'rgba(45,90,61,0.08)',
+                      color: '#2d5a3d',
+                      borderRadius: '8px',
+                      padding: '6px 10px',
+                      fontSize: '12px',
+                      fontWeight: '600',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    Details
+                  </button>
+                </div>
+              </div>
+            </article>
+          );
+        })}
+      </div>
+    </section>
+  );
+};
+
+const buildQuizRound = (candidates) => {
+  if (candidates.length < 2) return null;
+  const target = candidates[Math.floor(Math.random() * candidates.length)];
+  const decoys = shuffleItems(candidates.filter(bird => bird.id !== target.id)).slice(0, Math.min(3, candidates.length - 1));
+  return { target, options: shuffleItems([target, ...decoys]) };
+};
+
+const CallTestMode = ({ candidates, onSelectBird, getLikelihoodBg, getLikelihoodLabel }) => {
+  const audioRef = React.useRef(null);
+  const [round, setRound] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [answered, setAnswered] = useState(false);
+  const [selectedAnswerId, setSelectedAnswerId] = useState(null);
+  const [score, setScore] = useState(0);
+  const [answeredCount, setAnsweredCount] = useState(0);
+  const [error, setError] = useState(null);
+
+  const startRound = () => {
+    if (audioRef.current) audioRef.current.pause();
+    setRound(buildQuizRound(candidates));
+    setAnswered(false);
+    setSelectedAnswerId(null);
+    setError(null);
+  };
+
+  useEffect(() => {
+    setScore(0);
+    setAnsweredCount(0);
+    setRound(buildQuizRound(candidates));
+    setAnswered(false);
+    setSelectedAnswerId(null);
+    setError(null);
+  }, [candidates]);
+
+  useEffect(() => {
+    return () => {
+      if (audioRef.current) audioRef.current.pause();
+    };
+  }, []);
+
+  const playQuestion = async () => {
+    if (!round?.target || !audioRef.current) return;
+    setLoading(true);
+    setError(null);
+
+    try {
+      const recordings = await fetchBirdRecordings(round.target.scientific);
+      const recording = getPreferredRecording(recordings);
+      if (!recording) throw new Error('No recording available');
+      audioRef.current.src = recording.url;
+      audioRef.current.currentTime = 0;
+      await audioRef.current.play();
+    } catch (err) {
+      setError('Could not play this recording. Try the next call.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const chooseAnswer = (bird) => {
+    if (answered || !round) return;
+    const correct = bird.id === round.target.id;
+    setSelectedAnswerId(bird.id);
+    setAnswered(true);
+    setAnsweredCount(count => count + 1);
+    if (correct) setScore(value => value + 1);
+  };
+
+  if (candidates.length < 4) {
+    return (
+      <div style={{ background: '#fff', borderRadius: '16px', padding: '28px', textAlign: 'center', color: '#5c5c5c' }}>
+        Test mode needs at least four likely species for the selected date and time.
+      </div>
+    );
+  }
+
+  return (
+    <section style={{ animation: 'fadeInUp 0.4s ease-out' }}>
+      <audio ref={audioRef} />
+
+      <div style={{ marginBottom: '18px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: '16px', flexWrap: 'wrap' }}>
+        <div>
+          <h2 style={{ margin: 0, color: '#1a1a1a', fontSize: '1.6rem', fontWeight: '500' }}>Call Test</h2>
+          <p style={{ margin: '4px 0 0 0', color: '#8a8a8a', fontSize: '14px' }}>Listen, then choose the bird from today's likely candidates.</p>
+        </div>
+        <div style={{
+          background: '#fff',
+          color: '#2d5a3d',
+          padding: '8px 14px',
+          borderRadius: '100px',
+          fontSize: '13px',
+          fontWeight: '700',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
+        }}>
+          Score {score}/{answeredCount}
+        </div>
+      </div>
+
+      <div style={{
+        background: 'linear-gradient(135deg, #1a3a2a 0%, #2d5a3d 100%)',
+        borderRadius: '18px',
+        padding: '22px',
+        color: '#fff',
+        marginBottom: '18px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: '16px',
+        flexWrap: 'wrap',
+      }}>
+        <div>
+          <div style={{ fontSize: '13px', opacity: 0.75, marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Mystery Call</div>
+          <div style={{ fontSize: '1.35rem', fontFamily: "'Fraunces', Georgia, serif" }}>
+            {answered && round ? round.target.name : 'Which bird is this?'}
+          </div>
+        </div>
+        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+          <button
+            onClick={playQuestion}
+            disabled={loading || !round}
+            style={{
+              border: 'none',
+              background: '#fff',
+              color: '#2d5a3d',
+              borderRadius: '12px',
+              padding: '12px 16px',
+              fontSize: '15px',
+              fontWeight: '700',
+              cursor: loading ? 'wait' : 'pointer',
+              minWidth: '118px',
+            }}
+          >
+            {loading ? 'Loading...' : 'Play Call'}
+          </button>
+          <button
+            onClick={startRound}
+            style={{
+              border: '1px solid rgba(255,255,255,0.35)',
+              background: 'rgba(255,255,255,0.12)',
+              color: '#fff',
+              borderRadius: '12px',
+              padding: '12px 16px',
+              fontSize: '15px',
+              fontWeight: '700',
+              cursor: 'pointer',
+            }}
+          >
+            Next
+          </button>
+        </div>
+      </div>
+
+      {error && (
+        <div style={{
+          marginBottom: '14px',
+          background: '#fff7ed',
+          color: '#9a3412',
+          border: '1px solid #fed7aa',
+          borderRadius: '10px',
+          padding: '10px 12px',
+          fontSize: '14px',
+        }}>
+          {error}
+        </div>
+      )}
+
+      {round && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(230px, 1fr))', gap: '14px' }}>
+          {round.options.map((bird) => {
+            const isCorrect = answered && bird.id === round.target.id;
+            const isWrong = answered && bird.id === selectedAnswerId && bird.id !== round.target.id;
+            return (
+              <button
+                key={bird.id}
+                onClick={() => chooseAnswer(bird)}
+                disabled={answered}
+                style={{
+                  background: isCorrect ? '#ecfdf5' : isWrong ? '#fef2f2' : '#fff',
+                  border: isCorrect ? '2px solid #22c55e' : isWrong ? '2px solid #ef4444' : '1px solid rgba(0,0,0,0.06)',
+                  borderRadius: '14px',
+                  padding: '12px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '12px',
+                  textAlign: 'left',
+                  cursor: answered ? 'default' : 'pointer',
+                  boxShadow: '0 2px 10px rgba(0,0,0,0.05)',
+                }}
+              >
+                <BirdImage src={bird.image} alt={bird.name} scientificName={bird.scientific} style={{ width: '62px', height: '62px', borderRadius: '12px', flexShrink: 0 }} showCredits={false} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: '15px', fontWeight: '700', color: '#1a1a1a', marginBottom: '3px' }}>{bird.name}</div>
+                  <div style={{ fontSize: '12px', color: '#8a8a8a', marginBottom: '7px' }}>{bird.family}</div>
+                  <span style={{
+                    background: getLikelihoodBg(bird.likelihood),
+                    color: '#fff',
+                    padding: '4px 8px',
+                    borderRadius: '100px',
+                    fontSize: '11px',
+                    fontWeight: '700',
+                  }}>
+                    {getLikelihoodLabel(bird.likelihood)}
+                  </span>
+                </div>
+                {answered && (
+                  <span style={{ fontSize: '18px', width: '22px', textAlign: 'center' }}>
+                    {isCorrect ? '✓' : isWrong ? '×' : ''}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {answered && round && (
+        <div style={{
+          marginTop: '16px',
+          background: '#fff',
+          borderRadius: '14px',
+          padding: '14px 16px',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          gap: '12px',
+          flexWrap: 'wrap',
+          boxShadow: '0 2px 10px rgba(0,0,0,0.05)',
+        }}>
+          <div style={{ color: '#5c5c5c', fontSize: '14px' }}>
+            {selectedAnswerId === round.target.id ? 'Correct.' : `Correct answer: ${round.target.name}.`} {round.target.description}
+          </div>
+          <button
+            onClick={() => onSelectBird(round.target)}
+            style={{
+              border: 'none',
+              background: 'rgba(45,90,61,0.08)',
+              color: '#2d5a3d',
+              borderRadius: '10px',
+              padding: '9px 12px',
+              fontSize: '13px',
+              fontWeight: '700',
+              cursor: 'pointer',
+              flexShrink: 0,
+            }}
+          >
+            Details
+          </button>
+        </div>
+      )}
+    </section>
+  );
+};
+
 // Main App Component
 const BoiseRiverBirdGuide = () => {
   const [selectedDate, setSelectedDate] = useState(new Date());
@@ -1877,6 +2360,7 @@ const BoiseRiverBirdGuide = () => {
   const [filters, setFilters] = useState({ habitat: 'all', size: 'all', likelihood: 'all' });
   const [searchTerm, setSearchTerm] = useState('');
   const [viewMode, setViewMode] = useState('grid');
+  const [activeTab, setActiveTab] = useState('guide');
   const [hoveredHotspot, setHoveredHotspot] = useState(null);
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
   const [filtersExpanded, setFiltersExpanded] = useState(window.innerWidth > 768);
@@ -1914,12 +2398,17 @@ const BoiseRiverBirdGuide = () => {
     loadWeather();
   }, [selectedDate, selectedHour]);
 
-  const birdPredictions = useMemo(() => {
+  const allBirdPredictions = useMemo(() => {
     if (!weather) return [];
     return BIRD_DATABASE.map(bird => ({
       ...bird,
       likelihood: calculateBirdLikelihood(bird, selectedDate, weather, selectedHour),
     }))
+    .sort((a, b) => b.likelihood - a.likelihood);
+  }, [weather, selectedDate, selectedHour]);
+
+  const birdPredictions = useMemo(() => {
+    return allBirdPredictions
     .filter(bird => {
       if (filters.habitat !== 'all' && !bird.habitat.includes(filters.habitat)) return false;
       if (filters.size !== 'all' && bird.size !== filters.size) return false;
@@ -1933,7 +2422,12 @@ const BoiseRiverBirdGuide = () => {
       return true;
     })
     .sort((a, b) => b.likelihood - a.likelihood);
-  }, [weather, selectedDate, selectedHour, filters, searchTerm]);
+  }, [allBirdPredictions, filters, searchTerm]);
+
+  const callCandidates = useMemo(() => {
+    const likely = allBirdPredictions.filter(bird => bird.likelihood >= 0.15);
+    return (likely.length >= 4 ? likely : allBirdPredictions).slice(0, 16);
+  }, [allBirdPredictions]);
 
   // Modern 2025 styling helpers
   const getLikelihoodColor = (l) => l >= 0.7 ? '#2d5a3d' : l >= 0.5 ? '#4a7c59' : l >= 0.3 ? '#7d9a6f' : l >= 0.15 ? '#d4a574' : '#9a8b7a';
@@ -1998,6 +2492,24 @@ const BoiseRiverBirdGuide = () => {
     fontWeight: '500',
     transition: 'all 0.2s ease',
     boxShadow: active ? '0 4px 12px rgba(45,90,61,0.3)' : '0 2px 8px rgba(0,0,0,0.04)',
+  });
+
+  const tabButtonStyle = (active) => ({
+    padding: isMobile ? '9px 12px' : '10px 16px',
+    borderRadius: '10px',
+    border: active ? '1px solid rgba(255,255,255,0.35)' : '1px solid transparent',
+    background: active ? 'rgba(255,255,255,0.22)' : 'rgba(255,255,255,0.08)',
+    color: '#fff',
+    cursor: 'pointer',
+    fontSize: isMobile ? '13px' : '14px',
+    fontWeight: '700',
+    transition: 'all 0.2s ease',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '6px',
+    flex: isMobile ? '1 1 0' : '0 0 auto',
+    minWidth: isMobile ? 0 : '112px',
   });
 
   return (
@@ -2289,6 +2801,29 @@ const BoiseRiverBirdGuide = () => {
             </div>
             )}{/* End main flex (conditional) */}
           </div>{/* End glass card */}
+
+          <nav aria-label="Bird guide modes" style={{
+            display: 'flex',
+            gap: '8px',
+            marginTop: '12px',
+            flexWrap: 'wrap',
+          }}>
+            {[
+              { id: 'guide', label: 'Guide', icon: '⊞' },
+              { id: 'learn', label: 'Learn Calls', icon: '▶' },
+              { id: 'test', label: 'Test', icon: '?' },
+            ].map(tab => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                aria-current={activeTab === tab.id ? 'page' : undefined}
+                style={tabButtonStyle(activeTab === tab.id)}
+              >
+                <span>{tab.icon}</span>
+                <span>{tab.label}</span>
+              </button>
+            ))}
+          </nav>
         </div>
       </header>
 
@@ -2530,6 +3065,8 @@ const BoiseRiverBirdGuide = () => {
             );
           })()}
 
+          {activeTab === 'guide' ? (
+          <>
           {/* Results Header */}
           <div id="bird-grid" style={{
             marginBottom: '20px',
@@ -2752,6 +3289,23 @@ const BoiseRiverBirdGuide = () => {
                 </div>
               ))}
             </div>
+          )}
+          </>
+          ) : activeTab === 'learn' ? (
+            <CallFlashcards
+              candidates={callCandidates}
+              onSelectBird={setSelectedBird}
+              getLikelihoodBg={getLikelihoodBg}
+              getLikelihoodLabel={getLikelihoodLabel}
+              getSeasonIcon={getSeasonIcon}
+            />
+          ) : (
+            <CallTestMode
+              candidates={callCandidates}
+              onSelectBird={setSelectedBird}
+              getLikelihoodBg={getLikelihoodBg}
+              getLikelihoodLabel={getLikelihoodLabel}
+            />
           )}
         </main>
 
