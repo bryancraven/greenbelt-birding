@@ -1,0 +1,38 @@
+{
+  "region": {
+    "name": "Boise River Greenbelt",
+    "center": {
+      "lat": 43.615,
+      "lon": -116.2023
+    },
+    "radiusKm": 20
+  },
+  "gbif": {
+    "maxOccurrenceSamples": 300,
+    "requestDelayMs": 125
+  },
+  "confidenceThresholds": {
+    "high": 200,
+    "medium": 50,
+    "low": 10
+  },
+  "manualOverrides": {
+    "osprey": {
+      "vocalScore": 0.4,
+      "notes": "Frequently visible along water but less useful for beginner call quizzes."
+    },
+    "cathartes-aura": {
+      "vocalScore": 0.15,
+      "notes": "Common visual species but generally silent in the field."
+    },
+    "barswa": {
+      "vocalScore": 0.8
+    },
+    "cliswa": {
+      "vocalScore": 0.8
+    },
+    "treswa": {
+      "vocalScore": 0.75
+    }
+  }
+}

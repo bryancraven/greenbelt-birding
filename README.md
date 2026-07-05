@@ -19,7 +19,8 @@ This is a static React app in a single `index.html` file. It runs directly on Gi
 
 The app combines:
 
-- Local species data and Greenbelt-specific likelihood logic
+- Static Greenbelt likelihood model data generated from public occurrence records
+- Local species data and Greenbelt-specific fallback logic
 - Open-Meteo weather data for Boise
 - Wikimedia Commons images
 - xeno-canto bird audio through a small Cloudflare Worker proxy
@@ -48,6 +49,35 @@ https://bryancraven.github.io/greenbelt-birding/
 
 For normal site updates, commit changes to the GitHub Pages branch configured for the repository.
 
+## Likelihood Model
+
+The guide consumes `data/likelihood-model.json`, a static climatology model that covers all 12 months and 24 hours for the app's species list. The model is generated locally, committed to the repo, and served by GitHub Pages like any other static asset. If the JSON is missing or has invalid rows, the app falls back to the built-in hand-tuned likelihood logic.
+
+The generated model is not a live recent-sightings feed. It is designed to keep working for a year or more without refresh because it represents seasonal and hourly patterns, while current weather is still applied at runtime.
+
+Refresh the model on demand:
+
+```sh
+node tools/model/build-likelihood-model.mjs --source gbif
+node tools/model/verify-likelihood-model.mjs
+node tools/model/spot-check-model.mjs
+```
+
+The default builder uses public GBIF occurrence data around the Boise River Greenbelt and writes:
+
+```text
+data/likelihood-model.json
+data/model-report.json
+```
+
+For a higher-quality local refresh, you can use eBird Basic Dataset and Sampling Event Data files stored outside the repo:
+
+```sh
+node tools/model/build-likelihood-model.mjs --source ebird-ebd --ebd /path/to/ebd.txt --sed /path/to/sampling-events.txt
+```
+
+Do not commit raw eBird data, API keys, or private source files. Commit only the generated JSON/report and any intentional tooling changes.
+
 ## Audio Proxy
 
 Bird calls are fetched through the Cloudflare Worker in `worker/xeno-canto-proxy.js`.
@@ -72,6 +102,10 @@ If you have a xeno-canto API key, configure it as `XENO_CANTO_API_KEY`. The work
 ```text
 .
 ├── index.html                  # Static React app
+├── data/
+│   ├── likelihood-model.json   # Generated static likelihood model
+│   └── model-report.json       # Generated model QA/provenance report
+├── tools/model/                # Local model build and verification scripts
 ├── worker/
 │   ├── wrangler.toml           # Cloudflare Worker config
 │   └── xeno-canto-proxy.js     # Bird-call proxy with CORS and caching

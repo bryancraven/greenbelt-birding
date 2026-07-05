@@ -1,0 +1,609 @@
+{
+  "generatedAt": "2026-07-05T15:25:55.908Z",
+  "source": {
+    "type": "gbif-bootstrap",
+    "recordsUsed": 1356594,
+    "dateRange": [
+      "2014-01-01",
+      "2026-06-21"
+    ]
+  },
+  "speciesCount": 84,
+  "modeledSpeciesCount": 84,
+  "fallbackSpeciesCount": 0,
+  "confidenceCounts": {
+    "high": 83,
+    "low": 1
+  },
+  "warnings": [],
+  "species": {
+    "amerob": {
+      "name": "American Robin",
+      "confidence": "high",
+      "sampleSize": 52583,
+      "source": "gbif-bootstrap",
+      "modeled": true
+    },
+    "bkcchi": {
+      "name": "Black-capped Chickadee",
+      "confidence": "high",
+      "sampleSize": 39875,
+      "source": "gbif-bootstrap",
+      "modeled": true
+    },
+    "houfin": {
+      "name": "House Finch",
+      "confidence": "high",
+      "sampleSize": 64389,
+      "source": "gbif-bootstrap",
+      "modeled": true
+    },
+    "norfli": {
+      "name": "Northern Flicker",
+      "confidence": "high",
+      "sampleSize": 45068,
+      "source": "gbif-bootstrap",
+      "modeled": true
+    },
+    "dowwoo": {
+      "name": "Downy Woodpecker",
+      "confidence": "high",
+      "sampleSize": 18578,
+      "source": "gbif-bootstrap",
+      "modeled": true
+    },
+    "mallar3": {
+      "name": "Mallard",
+      "confidence": "high",
+      "sampleSize": 59170,
+      "source": "gbif-bootstrap",
+      "modeled": true
+    },
+    "cangoo": {
+      "name": "Canada Goose",
+      "confidence": "high",
+      "sampleSize": 53922,
+      "source": "gbif-bootstrap",
+      "modeled": true
+    },
+    "grbher3": {
+      "name": "Great Blue Heron",
+      "confidence": "high",
+      "sampleSize": 25078,
+      "source": "gbif-bootstrap",
+      "modeled": true
+    },
+    "belkin1": {
+      "name": "Belted Kingfisher",
+      "confidence": "high",
+      "sampleSize": 18083,
+      "source": "gbif-bootstrap",
+      "modeled": true
+    },
+    "amecro": {
+      "name": "American Crow",
+      "confidence": "high",
+      "sampleSize": 27165,
+      "source": "gbif-bootstrap",
+      "modeled": true
+    },
+    "bkbmag1": {
+      "name": "Black-billed Magpie",
+      "confidence": "high",
+      "sampleSize": 44199,
+      "source": "gbif-bootstrap",
+      "modeled": true
+    },
+    "eursta": {
+      "name": "European Starling",
+      "confidence": "high",
+      "sampleSize": 37625,
+      "source": "gbif-bootstrap",
+      "modeled": true
+    },
+    "houspa": {
+      "name": "House Sparrow",
+      "confidence": "high",
+      "sampleSize": 35966,
+      "source": "gbif-bootstrap",
+      "modeled": true
+    },
+    "sonspa": {
+      "name": "Song Sparrow",
+      "confidence": "high",
+      "sampleSize": 49776,
+      "source": "gbif-bootstrap",
+      "modeled": true
+    },
+    "daejun": {
+      "name": "Dark-eyed Junco",
+      "confidence": "high",
+      "sampleSize": 39834,
+      "source": "gbif-bootstrap",
+      "modeled": true
+    },
+    "rethaw": {
+      "name": "Red-tailed Hawk",
+      "confidence": "high",
+      "sampleSize": 33643,
+      "source": "gbif-bootstrap",
+      "modeled": true
+    },
+    "coohaw": {
+      "name": "Cooper's Hawk",
+      "confidence": "low",
+      "sampleSize": 24,
+      "source": "gbif-bootstrap",
+      "modeled": true
+    },
+    "shshaw": {
+      "name": "Sharp-shinned Hawk",
+      "confidence": "high",
+      "sampleSize": 7082,
+      "source": "gbif-bootstrap",
+      "modeled": true
+    },
+    "amekes": {
+      "name": "American Kestrel",
+      "confidence": "high",
+      "sampleSize": 30940,
+      "source": "gbif-bootstrap",
+      "modeled": true
+    },
+    "moudov": {
+      "name": "Mourning Dove",
+      "confidence": "high",
+      "sampleSize": 50602,
+      "source": "gbif-bootstrap",
+      "modeled": true
+    },
+    "rocpig": {
+      "name": "Rock Pigeon",
+      "confidence": "high",
+      "sampleSize": 11021,
+      "source": "gbif-bootstrap",
+      "modeled": true
+    },
+    "eucdov": {
+      "name": "Eurasian Collared-Dove",
+      "confidence": "high",
+      "sampleSize": 21868,
+      "source": "gbif-bootstrap",
+      "modeled": true
+    },
+    "ribgul": {
+      "name": "Ring-billed Gull",
+      "confidence": "high",
+      "sampleSize": 18669,
+      "source": "gbif-bootstrap",
+      "modeled": true
+    },
+    "calqua": {
+      "name": "California Quail",
+      "confidence": "high",
+      "sampleSize": 31512,
+      "source": "gbif-bootstrap",
+      "modeled": true
+    },
+    "whbnut": {
+      "name": "White-breasted Nuthatch",
+      "confidence": "high",
+      "sampleSize": 2068,
+      "source": "gbif-bootstrap",
+      "modeled": true
+    },
+    "rebnut": {
+      "name": "Red-breasted Nuthatch",
+      "confidence": "high",
+      "sampleSize": 22168,
+      "source": "gbif-bootstrap",
+      "modeled": true
+    },
+    "haiwoo": {
+      "name": "Hairy Woodpecker",
+      "confidence": "high",
+      "sampleSize": 3004,
+      "source": "gbif-bootstrap",
+      "modeled": true
+    },
+    "amegfi": {
+      "name": "American Goldfinch",
+      "confidence": "high",
+      "sampleSize": 33569,
+      "source": "gbif-bootstrap",
+      "modeled": true
+    },
+    "lesgol": {
+      "name": "Lesser Goldfinch",
+      "confidence": "high",
+      "sampleSize": 35145,
+      "source": "gbif-bootstrap",
+      "modeled": true
+    },
+    "spotow": {
+      "name": "Spotted Towhee",
+      "confidence": "high",
+      "sampleSize": 11819,
+      "source": "gbif-bootstrap",
+      "modeled": true
+    },
+    "haliaeetus-leucocephalus": {
+      "name": "Bald Eagle",
+      "confidence": "high",
+      "sampleSize": 6719,
+      "source": "gbif-bootstrap",
+      "modeled": true
+    },
+    "buteo-lagopus": {
+      "name": "Rough-legged Hawk",
+      "confidence": "high",
+      "sampleSize": 451,
+      "source": "gbif-bootstrap",
+      "modeled": true
+    },
+    "cygnus-buccinator": {
+      "name": "Trumpeter Swan",
+      "confidence": "high",
+      "sampleSize": 334,
+      "source": "gbif-bootstrap",
+      "modeled": true
+    },
+    "bucephala-clangula": {
+      "name": "Common Goldeneye",
+      "confidence": "high",
+      "sampleSize": 9329,
+      "source": "gbif-bootstrap",
+      "modeled": true
+    },
+    "bucephala-islandica": {
+      "name": "Barrow's Goldeneye",
+      "confidence": "high",
+      "sampleSize": 1565,
+      "source": "gbif-bootstrap",
+      "modeled": true
+    },
+    "bucephala-albeola": {
+      "name": "Bufflehead",
+      "confidence": "high",
+      "sampleSize": 7284,
+      "source": "gbif-bootstrap",
+      "modeled": true
+    },
+    "mergus-merganser": {
+      "name": "Common Merganser",
+      "confidence": "high",
+      "sampleSize": 15612,
+      "source": "gbif-bootstrap",
+      "modeled": true
+    },
+    "lophodytes-cucullatus": {
+      "name": "Hooded Merganser",
+      "confidence": "high",
+      "sampleSize": 9180,
+      "source": "gbif-bootstrap",
+      "modeled": true
+    },
+    "podiceps-auritus": {
+      "name": "Horned Grebe",
+      "confidence": "high",
+      "sampleSize": 435,
+      "source": "gbif-bootstrap",
+      "modeled": true
+    },
+    "podilymbus-podiceps": {
+      "name": "Pied-billed Grebe",
+      "confidence": "high",
+      "sampleSize": 7353,
+      "source": "gbif-bootstrap",
+      "modeled": true
+    },
+    "fulica-americana": {
+      "name": "American Coot",
+      "confidence": "high",
+      "sampleSize": 14924,
+      "source": "gbif-bootstrap",
+      "modeled": true
+    },
+    "regulus-satrapa": {
+      "name": "Golden-crowned Kinglet",
+      "confidence": "high",
+      "sampleSize": 3939,
+      "source": "gbif-bootstrap",
+      "modeled": true
+    },
+    "corthylio-calendula": {
+      "name": "Ruby-crowned Kinglet",
+      "confidence": "high",
+      "sampleSize": 21365,
+      "source": "gbif-bootstrap",
+      "modeled": true
+    },
+    "poecile-gambeli": {
+      "name": "Mountain Chickadee",
+      "confidence": "high",
+      "sampleSize": 6805,
+      "source": "gbif-bootstrap",
+      "modeled": true
+    },
+    "myadestes-townsendi": {
+      "name": "Townsend's Solitaire",
+      "confidence": "high",
+      "sampleSize": 4587,
+      "source": "gbif-bootstrap",
+      "modeled": true
+    },
+    "bombycilla-cedrorum": {
+      "name": "Cedar Waxwing",
+      "confidence": "high",
+      "sampleSize": 20128,
+      "source": "gbif-bootstrap",
+      "modeled": true
+    },
+    "bombycilla-garrulus": {
+      "name": "Bohemian Waxwing",
+      "confidence": "high",
+      "sampleSize": 1217,
+      "source": "gbif-bootstrap",
+      "modeled": true
+    },
+    "zonotrichia-leucophrys": {
+      "name": "White-crowned Sparrow",
+      "confidence": "high",
+      "sampleSize": 21932,
+      "source": "gbif-bootstrap",
+      "modeled": true
+    },
+    "zonotrichia-albicollis": {
+      "name": "White-throated Sparrow",
+      "confidence": "high",
+      "sampleSize": 730,
+      "source": "gbif-bootstrap",
+      "modeled": true
+    },
+    "lanius-borealis": {
+      "name": "Northern Shrike",
+      "confidence": "high",
+      "sampleSize": 354,
+      "source": "gbif-bootstrap",
+      "modeled": true
+    },
+    "pacwre": {
+      "name": "Pacific Wren",
+      "confidence": "high",
+      "sampleSize": 888,
+      "source": "gbif-bootstrap",
+      "modeled": true
+    },
+    "bulori": {
+      "name": "Bullock's Oriole",
+      "confidence": "high",
+      "sampleSize": 9839,
+      "source": "gbif-bootstrap",
+      "modeled": true
+    },
+    "yelwar": {
+      "name": "Yellow Warbler",
+      "confidence": "high",
+      "sampleSize": 15876,
+      "source": "gbif-bootstrap",
+      "modeled": true
+    },
+    "bkhgro": {
+      "name": "Black-headed Grosbeak",
+      "confidence": "high",
+      "sampleSize": 7439,
+      "source": "gbif-bootstrap",
+      "modeled": true
+    },
+    "wewpew": {
+      "name": "Western Wood-Pewee",
+      "confidence": "high",
+      "sampleSize": 6380,
+      "source": "gbif-bootstrap",
+      "modeled": true
+    },
+    "saypho": {
+      "name": "Say's Phoebe",
+      "confidence": "high",
+      "sampleSize": 7507,
+      "source": "gbif-bootstrap",
+      "modeled": true
+    },
+    "warvir": {
+      "name": "Warbling Vireo",
+      "confidence": "high",
+      "sampleSize": 7230,
+      "source": "gbif-bootstrap",
+      "modeled": true
+    },
+    "houwre": {
+      "name": "House Wren",
+      "confidence": "high",
+      "sampleSize": 7979,
+      "source": "gbif-bootstrap",
+      "modeled": true
+    },
+    "treswa": {
+      "name": "Tree Swallow",
+      "confidence": "high",
+      "sampleSize": 3182,
+      "source": "gbif-bootstrap",
+      "modeled": true
+    },
+    "barswa": {
+      "name": "Barn Swallow",
+      "confidence": "high",
+      "sampleSize": 12474,
+      "source": "gbif-bootstrap",
+      "modeled": true
+    },
+    "cliswa": {
+      "name": "Cliff Swallow",
+      "confidence": "high",
+      "sampleSize": 4670,
+      "source": "gbif-bootstrap",
+      "modeled": true
+    },
+    "osprey": {
+      "name": "Osprey",
+      "confidence": "high",
+      "sampleSize": 10507,
+      "source": "gbif-bootstrap",
+      "modeled": true
+    },
+    "comnig": {
+      "name": "Common Nighthawk",
+      "confidence": "high",
+      "sampleSize": 2393,
+      "source": "gbif-bootstrap",
+      "modeled": true
+    },
+    "lazbun": {
+      "name": "Lazuli Bunting",
+      "confidence": "high",
+      "sampleSize": 11330,
+      "source": "gbif-bootstrap",
+      "modeled": true
+    },
+    "weskin": {
+      "name": "Western Kingbird",
+      "confidence": "high",
+      "sampleSize": 8271,
+      "source": "gbif-bootstrap",
+      "modeled": true
+    },
+    "selasphorus-calliope": {
+      "name": "Calliope Hummingbird",
+      "confidence": "high",
+      "sampleSize": 2695,
+      "source": "gbif-bootstrap",
+      "modeled": true
+    },
+    "setophaga-coronata": {
+      "name": "Yellow-rumped Warbler",
+      "confidence": "high",
+      "sampleSize": 18625,
+      "source": "gbif-bootstrap",
+      "modeled": true
+    },
+    "cardellina-pusilla": {
+      "name": "Wilson's Warbler",
+      "confidence": "high",
+      "sampleSize": 3046,
+      "source": "gbif-bootstrap",
+      "modeled": true
+    },
+    "leiothlypis-celata": {
+      "name": "Orange-crowned Warbler",
+      "confidence": "high",
+      "sampleSize": 4598,
+      "source": "gbif-bootstrap",
+      "modeled": true
+    },
+    "piranga-ludoviciana": {
+      "name": "Western Tanager",
+      "confidence": "high",
+      "sampleSize": 8786,
+      "source": "gbif-bootstrap",
+      "modeled": true
+    },
+    "spizella-passerina": {
+      "name": "Chipping Sparrow",
+      "confidence": "high",
+      "sampleSize": 6629,
+      "source": "gbif-bootstrap",
+      "modeled": true
+    },
+    "melospiza-lincolnii": {
+      "name": "Lincoln's Sparrow",
+      "confidence": "high",
+      "sampleSize": 1318,
+      "source": "gbif-bootstrap",
+      "modeled": true
+    },
+    "anser-caerulescens": {
+      "name": "Snow Goose",
+      "confidence": "high",
+      "sampleSize": 906,
+      "source": "gbif-bootstrap",
+      "modeled": true
+    },
+    "antigone-canadensis": {
+      "name": "Sandhill Crane",
+      "confidence": "high",
+      "sampleSize": 560,
+      "source": "gbif-bootstrap",
+      "modeled": true
+    },
+    "ardea-alba": {
+      "name": "Great Egret",
+      "confidence": "high",
+      "sampleSize": 2690,
+      "source": "gbif-bootstrap",
+      "modeled": true
+    },
+    "himantopus-mexicanus": {
+      "name": "Black-necked Stilt",
+      "confidence": "high",
+      "sampleSize": 2898,
+      "source": "gbif-bootstrap",
+      "modeled": true
+    },
+    "charadrius-vociferus": {
+      "name": "Killdeer",
+      "confidence": "high",
+      "sampleSize": 17565,
+      "source": "gbif-bootstrap",
+      "modeled": true
+    },
+    "agelaius-phoeniceus": {
+      "name": "Red-winged Blackbird",
+      "confidence": "high",
+      "sampleSize": 40505,
+      "source": "gbif-bootstrap",
+      "modeled": true
+    },
+    "aix-sponsa": {
+      "name": "Wood Duck",
+      "confidence": "high",
+      "sampleSize": 18755,
+      "source": "gbif-bootstrap",
+      "modeled": true
+    },
+    "nannopterum-auritum": {
+      "name": "Double-crested Cormorant",
+      "confidence": "high",
+      "sampleSize": 12193,
+      "source": "gbif-bootstrap",
+      "modeled": true
+    },
+    "geothlypis-trichas": {
+      "name": "Common Yellowthroat",
+      "confidence": "high",
+      "sampleSize": 1226,
+      "source": "gbif-bootstrap",
+      "modeled": true
+    },
+    "thryomanes-bewickii": {
+      "name": "Bewick's Wren",
+      "confidence": "high",
+      "sampleSize": 9005,
+      "source": "gbif-bootstrap",
+      "modeled": true
+    },
+    "cathartes-aura": {
+      "name": "Turkey Vulture",
+      "confidence": "high",
+      "sampleSize": 9279,
+      "source": "gbif-bootstrap",
+      "modeled": true
+    },
+    "cinclus-mexicanus": {
+      "name": "American Dipper",
+      "confidence": "high",
+      "sampleSize": 662,
+      "source": "gbif-bootstrap",
+      "modeled": true
+    }
+  }
+}
