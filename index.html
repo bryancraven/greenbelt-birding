@@ -11,8 +11,11 @@
   <meta property="og:description" content="Real-time bird sighting predictions for Idaho's premier urban trail">
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://bryancraven.github.io/greenbelt-birding/">
-  <meta name="twitter:card" content="summary">
+  <meta property="og:image" content="https://bryancraven.github.io/greenbelt-birding/assets/art/greenbelt-art-deco-hero.jpg">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:image" content="https://bryancraven.github.io/greenbelt-birding/assets/art/greenbelt-art-deco-hero.jpg">
   <meta name="theme-color" content="#2d5a3d">
+  <link rel="preload" as="image" href="assets/art/greenbelt-art-deco-hero.jpg">
   <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -180,38 +183,185 @@ const verifyBirdImages = async () => {
 window.verifyBirdImages = verifyBirdImages;
 
 const RECORDING_PROXY_URL = 'https://xeno-canto-proxy.spudbc.workers.dev';
+const AUDIO_AVAILABILITY_URL = 'data/audio-availability.json';
+const AUDIO_AVAILABILITY_VERSION = 1;
 const recordingCache = new Map();
+const failedRecordingCache = new Set();
+const AUDIO_QUERY_ALIASES = {
+  'Dryobates villosus': ['Leuconotopicus villosus'],
+};
 
 const normalizeRecording = (r) => ({
-  id: r.id,
-  url: r.file,
+  id: String(r.id || r.url || r.file || ''),
+  url: normalizeAudioUrl(getStaticXenoCantoAudioUrl(r) || r.streamUrl || r.url || r.file),
+  downloadUrl: normalizeAudioUrl(r.downloadUrl || r.file),
   type: r.type || 'call',
-  location: r.loc,
-  recordist: r.rec,
-  quality: r.q,
+  location: r.location || r.loc,
+  recordist: r.recordist || r.rec,
+  quality: r.quality || r.q,
   length: r.length,
   date: r.date,
+  contentType: r.contentType,
 });
 
+const normalizeAudioUrl = (url) => {
+  if (!url) return '';
+  if (url.startsWith('//')) return `https:${url}`;
+  if (url.startsWith('http://')) return url.replace(/^http:/, 'https:');
+  return url;
+};
+
+const getStaticXenoCantoAudioUrl = (recording) => {
+  const fileName = recording?.['file-name'] || recording?.fileName;
+  const spectrogram = recording?.sono?.small || recording?.spectrogramUrl;
+  const uploadKey = String(spectrogram || '').match(/\/sounds\/spectrograms\/([^/]+)\//)?.[1];
+  if (!fileName || !uploadKey) return null;
+  const encodedFileName = String(fileName).split('/').map(encodeURIComponent).join('/');
+  return `https://xeno-canto.org/sounds/uploaded/${uploadKey}/${encodedFileName}`;
+};
+
+const getProxiedAudioUrl = (url) => {
+  const normalizedUrl = normalizeAudioUrl(url);
+  if (!normalizedUrl.startsWith('https://xeno-canto.org/')) return normalizedUrl;
+  return `${RECORDING_PROXY_URL}?audio=${encodeURIComponent(normalizedUrl)}`;
+};
+
+const getRecordingPlaybackUrls = (recording) => {
+  return [...new Set([
+    normalizeAudioUrl(recording?.url),
+    normalizeAudioUrl(recording?.downloadUrl),
+    getProxiedAudioUrl(recording?.url),
+  ].filter(Boolean))];
+};
+
+const recordingFailureKey = (recording, url = recording?.url) => `${recording?.id || 'recording'}:${url || ''}`;
+
+const durationToSeconds = (value) => {
+  const parts = String(value || '').split(':').map(Number);
+  if (parts.some(part => !Number.isFinite(part))) return 0;
+  if (parts.length === 2) return parts[0] * 60 + parts[1];
+  if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
+  return 0;
+};
+
+const recordingRank = (recording) => {
+  const type = String(recording.type || '').toLowerCase();
+  const quality = String(recording.quality || '').toUpperCase();
+  const seconds = durationToSeconds(recording.length);
+  let score = 0;
+  score += ({ A: 5, B: 4, C: 3, D: 1, E: 0 }[quality] ?? 2) * 10;
+  if (type.includes('song')) score += 18;
+  if (type.includes('call')) score += 12;
+  if (type.includes('alarm')) score -= 4;
+  if (type.includes('flight')) score -= 5;
+  if (type.includes('background')) score -= 8;
+  if (seconds > 0 && seconds <= 90) score += 8;
+  if (seconds > 180) score -= 10;
+  return score;
+};
+
+const getPreferredRecordings = (recordings) => {
+  if (!recordings?.length) return [];
+  return [...recordings]
+    .filter(recording => recording?.url && getRecordingPlaybackUrls(recording).some(url => !failedRecordingCache.has(recordingFailureKey(recording, url))))
+    .sort((a, b) => recordingRank(b) - recordingRank(a));
+};
+
 const getPreferredRecording = (recordings) => {
-  if (!recordings?.length) return null;
-  return recordings.find(r => (r.type || '').toLowerCase().includes('song')) ||
-    recordings.find(r => (r.type || '').toLowerCase().includes('call')) ||
-    recordings[0];
+  return getPreferredRecordings(recordings)[0] || null;
 };
 
 const fetchBirdRecordings = async (scientificName, signal) => {
   if (recordingCache.has(scientificName)) return recordingCache.get(scientificName);
 
-  const response = await fetch(`${RECORDING_PROXY_URL}?species=${encodeURIComponent(scientificName)}`, { signal });
-  if (!response.ok) throw new Error(`Server error: ${response.status}`);
-  const data = await response.json();
-  const recordings = (data.recordings || [])
-    .filter(r => r.file)
-    .slice(0, 8)
-    .map(normalizeRecording);
+  const queryNames = [scientificName, ...(AUDIO_QUERY_ALIASES[scientificName] || [])];
+  let recordings = [];
+  for (const quality of ['A', 'any']) {
+    for (const queryName of queryNames) {
+      const response = await fetch(`${RECORDING_PROXY_URL}?species=${encodeURIComponent(queryName)}&quality=${quality}`, { signal });
+      if (!response.ok) throw new Error(`Server error: ${response.status}`);
+      const data = await response.json();
+      recordings = (data.recordings || [])
+        .filter(r => r.file)
+        .map(normalizeRecording)
+        .sort((a, b) => recordingRank(b) - recordingRank(a))
+        .slice(0, 10);
+      if (recordings.length) break;
+    }
+    if (recordings.length) break;
+  }
+
   recordingCache.set(scientificName, recordings);
   return recordings;
+};
+
+const validateAudioAvailability = (rawData) => {
+  if (!rawData || rawData.version !== AUDIO_AVAILABILITY_VERSION || typeof rawData.species !== 'object') {
+    throw new Error('Unsupported audio availability data');
+  }
+
+  const species = {};
+  const warnings = [];
+  Object.entries(rawData.species).forEach(([key, row]) => {
+    const recordings = Array.isArray(row?.recordings)
+      ? row.recordings.map(normalizeRecording).filter(recording => recording.url)
+      : [];
+    if (row && typeof row === 'object') {
+      species[key] = {
+        ...row,
+        preferredRecording: row.preferredRecording ? normalizeRecording(row.preferredRecording) : recordings[0] || null,
+        recordings,
+      };
+    } else {
+      warnings.push(`Ignored invalid audio row: ${key}`);
+    }
+  });
+
+  return {
+    ...rawData,
+    species,
+    warnings,
+    status: warnings.length ? 'partial' : 'loaded',
+  };
+};
+
+const getAudioAvailabilityRow = (bird, audioAvailability) => {
+  if (!audioAvailability?.species) return null;
+  return audioAvailability.species[getBirdModelKey(bird)] || audioAvailability.species[normalizeSpeciesKey(bird.scientific)] || null;
+};
+
+const hasVerifiedAudio = (bird, audioAvailability) => {
+  const row = getAudioAvailabilityRow(bird, audioAvailability);
+  if (!row) return null;
+  return Array.isArray(row.recordings) && row.recordings.length > 0;
+};
+
+const getRecordingsForBird = async (bird, audioAvailability, signal) => {
+  const row = getAudioAvailabilityRow(bird, audioAvailability);
+  if (row?.recordings?.length) return getPreferredRecordings(row.recordings);
+  return getPreferredRecordings(await fetchBirdRecordings(bird.scientific, signal));
+};
+
+const playFirstAvailableRecording = async (audio, recordings) => {
+  let lastError = null;
+  for (const recording of getPreferredRecordings(recordings)) {
+    for (const url of getRecordingPlaybackUrls(recording)) {
+      if (failedRecordingCache.has(recordingFailureKey(recording, url))) continue;
+      try {
+        audio.pause();
+        audio.src = url;
+        audio.currentTime = 0;
+        audio.load();
+        await audio.play();
+        return { ...recording, playbackUrl: url };
+      } catch (error) {
+        lastError = error;
+        failedRecordingCache.add(recordingFailureKey(recording, url));
+        console.warn('Recording URL failed, trying next option:', { ...recording, playbackUrl: url }, error);
+      }
+    }
+  }
+  throw lastError || new Error('No playable recording available');
 };
 
 // Modern Audio Miniplayer Component for Bird Calls
@@ -1974,7 +2124,7 @@ const shuffleItems = (items) => {
   return copy;
 };
 
-const CallFlashcards = ({ candidates, onSelectBird, getLikelihoodBg, getLikelihoodLabel, getSeasonIcon }) => {
+const CallFlashcards = ({ candidates, audioAvailability, onSelectBird, getLikelihoodBg, getLikelihoodLabel, getSeasonIcon }) => {
   const audioRef = React.useRef(null);
   const [activeBirdId, setActiveBirdId] = useState(null);
   const [loadingBirdId, setLoadingBirdId] = useState(null);
@@ -2002,15 +2152,11 @@ const CallFlashcards = ({ candidates, onSelectBird, getLikelihoodBg, getLikeliho
     setLoadingBirdId(bird.id);
 
     try {
-      const recordings = await fetchBirdRecordings(bird.scientific);
-      const recording = getPreferredRecording(recordings);
-      if (!recording) throw new Error('No recording available');
-
-      audio.src = recording.url;
-      audio.currentTime = 0;
+      const recordings = await getRecordingsForBird(bird, audioAvailability);
+      if (!recordings.length) throw new Error('No verified recording available');
       setActiveBirdId(bird.id);
+      const recording = await playFirstAvailableRecording(audio, recordings);
       setCurrentRecording({ ...recording, birdName: bird.name });
-      await audio.play();
       setIsPlaying(true);
     } catch (err) {
       setError(`${bird.name}: ${err.message === 'Failed to fetch' ? 'audio unavailable' : 'could not play audio'}`);
@@ -2069,6 +2215,7 @@ const CallFlashcards = ({ candidates, onSelectBird, getLikelihoodBg, getLikeliho
         {candidates.map((bird, index) => {
           const active = activeBirdId === bird.id;
           const loading = loadingBirdId === bird.id;
+          const audioStatus = hasVerifiedAudio(bird, audioAvailability);
           return (
             <article
               key={bird.id}
@@ -2137,16 +2284,30 @@ const CallFlashcards = ({ candidates, onSelectBird, getLikelihoodBg, getLikeliho
                 <h3 style={{ margin: '0 0 4px 0', fontSize: '1.05rem', color: '#1a1a1a', fontWeight: '500' }}>{bird.name}</h3>
                 <p style={{ margin: '0 0 12px 0', fontSize: '13px', color: '#8a8a8a', fontStyle: 'italic' }}>{bird.scientific}</p>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px' }}>
-                  <span style={{
-                    background: getLikelihoodBg(bird.likelihood),
-                    color: '#fff',
-                    padding: '5px 10px',
-                    borderRadius: '100px',
-                    fontSize: '12px',
-                    fontWeight: '600',
-                  }}>
-                    {getLikelihoodLabel(bird.likelihood)}
-                  </span>
+                  <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
+                    <span style={{
+                      background: getLikelihoodBg(bird.likelihood),
+                      color: '#fff',
+                      padding: '5px 10px',
+                      borderRadius: '100px',
+                      fontSize: '12px',
+                      fontWeight: '600',
+                    }}>
+                      {getLikelihoodLabel(bird.likelihood)}
+                    </span>
+                    {audioStatus === false && (
+                      <span style={{
+                        background: '#f3f0e8',
+                        color: '#70665d',
+                        padding: '5px 8px',
+                        borderRadius: '100px',
+                        fontSize: '11px',
+                        fontWeight: '700',
+                      }}>
+                        Audio pending
+                      </span>
+                    )}
+                  </div>
                   <button
                     onClick={(e) => { e.stopPropagation(); onSelectBird(bird); }}
                     style={{
@@ -2172,63 +2333,127 @@ const CallFlashcards = ({ candidates, onSelectBird, getLikelihoodBg, getLikeliho
   );
 };
 
-const weightedPick = (items) => {
+const CORE_QUIZ_SIZE = 20;
+
+const weightedPick = (items, getWeight = item => item.callTestScore || item.likelihood || 0.1) => {
   if (!items.length) return null;
-  const total = items.reduce((sum, item) => sum + Math.max(0.01, item.callTestScore || item.likelihood || 0.1), 0);
+  const total = items.reduce((sum, item) => sum + Math.max(0.01, getWeight(item)), 0);
   let cursor = Math.random() * total;
   for (const item of items) {
-    cursor -= Math.max(0.01, item.callTestScore || item.likelihood || 0.1);
+    cursor -= Math.max(0.01, getWeight(item));
     if (cursor <= 0) return item;
   }
   return items[items.length - 1];
 };
 
-const buildQuizRound = (candidates, runStats = { seenTargetIds: [], correctIds: [], recentOptionIds: [] }) => {
-  if (candidates.length < 2) return null;
+const uniqueById = (items) => {
+  const seen = new Set();
+  return items.filter(item => {
+    if (!item || seen.has(item.id)) return false;
+    seen.add(item.id);
+    return true;
+  });
+};
+
+const buildQuizRound = (candidates, runStats = { seenTargetIds: [], correctIds: [], recentOptionIds: [], unplayableIds: [] }) => {
+  const unplayableIds = new Set(runStats.unplayableIds || []);
+  const sortedCandidates = [...candidates]
+    .filter(bird => !unplayableIds.has(bird.id))
+    .sort((a, b) => (b.likelihood || 0) - (a.likelihood || 0) || (b.callTestScore || 0) - (a.callTestScore || 0));
+  if (sortedCandidates.length < 2) return null;
+
   const seenTargets = new Set(runStats.seenTargetIds || []);
   const correctIds = new Set(runStats.correctIds || []);
   const recentOptions = new Set(runStats.recentOptionIds || []);
-  const freshTargets = candidates.filter(bird => !correctIds.has(bird.id) && !seenTargets.has(bird.id));
-  const unmasteredTargets = candidates.filter(bird => !correctIds.has(bird.id));
-  const targetPool = freshTargets.length ? freshTargets : unmasteredTargets.length ? unmasteredTargets : candidates;
-  const target = weightedPick(targetPool);
-  const preferredDecoys = candidates.filter(bird =>
+
+  const verifiedCandidates = sortedCandidates.filter(bird => bird.audioStatus !== false);
+  const quizCandidates = verifiedCandidates.length >= 4 ? verifiedCandidates : sortedCandidates;
+  const decoyCandidates = [...quizCandidates]
+    .sort((a, b) => (b.callTestScore || b.likelihood || 0) - (a.callTestScore || a.likelihood || 0));
+  const coreSet = quizCandidates.slice(0, Math.min(CORE_QUIZ_SIZE, quizCandidates.length));
+  const longTail = decoyCandidates.filter(bird => !coreSet.some(coreBird => coreBird.id === bird.id));
+  const freshCoreTargets = coreSet.filter(bird => !correctIds.has(bird.id) && !seenTargets.has(bird.id));
+  const unmasteredCoreTargets = coreSet.filter(bird => !correctIds.has(bird.id));
+  const freshLongTailTargets = longTail.filter(bird => !correctIds.has(bird.id) && !seenTargets.has(bird.id));
+  const unmasteredLongTailTargets = longTail.filter(bird => !correctIds.has(bird.id));
+  const targetPool = freshCoreTargets.length ? freshCoreTargets :
+    unmasteredCoreTargets.length ? unmasteredCoreTargets :
+    freshLongTailTargets.length ? freshLongTailTargets :
+    unmasteredLongTailTargets.length ? unmasteredLongTailTargets :
+    quizCandidates;
+  const target = weightedPick(targetPool, bird => {
+    const score = bird.callTestScore || bird.likelihood || 0.1;
+    return coreSet.some(coreBird => coreBird.id === bird.id) ? score * 3 : score;
+  });
+
+  const preferredDecoys = decoyCandidates.filter(bird =>
     bird.id !== target.id &&
     !correctIds.has(bird.id) &&
     !recentOptions.has(bird.id)
   );
-  const unmasteredDecoys = candidates.filter(bird => bird.id !== target.id && !correctIds.has(bird.id));
-  const allDecoys = candidates.filter(bird => bird.id !== target.id);
-  const decoyPool = preferredDecoys.length >= 3 ? preferredDecoys : unmasteredDecoys.length >= 3 ? unmasteredDecoys : allDecoys;
-  const decoys = shuffleItems(decoyPool).slice(0, Math.min(3, candidates.length - 1));
-  return { target, options: shuffleItems([target, ...decoys]) };
+  const unmasteredDecoys = decoyCandidates.filter(bird => bird.id !== target.id && !correctIds.has(bird.id));
+  const coreDecoys = coreSet.filter(bird => bird.id !== target.id);
+  const allDecoys = decoyCandidates.filter(bird => bird.id !== target.id);
+  const decoys = uniqueById([
+    ...shuffleItems(preferredDecoys),
+    ...shuffleItems(unmasteredDecoys),
+    ...shuffleItems(coreDecoys),
+    ...shuffleItems(allDecoys),
+  ]).slice(0, Math.min(3, quizCandidates.length - 1));
+
+  return {
+    target,
+    options: shuffleItems([target, ...decoys]),
+    coreSize: coreSet.length,
+    coreCovered: coreSet.filter(bird => seenTargets.has(bird.id) || correctIds.has(bird.id)).length,
+    coreRemaining: coreSet.filter(bird => !seenTargets.has(bird.id) && !correctIds.has(bird.id)).length,
+    isCoreTarget: coreSet.some(bird => bird.id === target.id),
+  };
 };
 
-const CallTestMode = ({ candidates, onSelectBird, getLikelihoodBg, getLikelihoodLabel }) => {
+const initialQuizStats = () => ({ seenTargetIds: [], correctIds: [], recentOptionIds: [], unplayableIds: [] });
+
+const CallTestMode = ({ candidates, audioAvailability, onSelectBird, getLikelihoodBg, getLikelihoodLabel }) => {
   const audioRef = React.useRef(null);
   const [round, setRound] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [preparingAudio, setPreparingAudio] = useState(false);
+  const [roundRecordings, setRoundRecordings] = useState([]);
   const [answered, setAnswered] = useState(false);
   const [selectedAnswerId, setSelectedAnswerId] = useState(null);
   const [score, setScore] = useState(0);
   const [answeredCount, setAnsweredCount] = useState(0);
-  const [runStats, setRunStats] = useState({ seenTargetIds: [], correctIds: [], recentOptionIds: [] });
+  const [runStats, setRunStats] = useState(initialQuizStats());
   const [error, setError] = useState(null);
 
-  const startRound = () => {
+  const startRoundWithStats = (stats, preserveError = false) => {
     if (audioRef.current) audioRef.current.pause();
-    setRound(buildQuizRound(candidates, runStats));
+    setRound(buildQuizRound(candidates, stats));
+    setRoundRecordings([]);
     setAnswered(false);
     setSelectedAnswerId(null);
-    setError(null);
+    if (!preserveError) setError(null);
+  };
+
+  const startRound = () => {
+    startRoundWithStats(runStats);
+  };
+
+  const resetRun = () => {
+    const nextRunStats = initialQuizStats();
+    setScore(0);
+    setAnsweredCount(0);
+    setRunStats(nextRunStats);
+    startRoundWithStats(nextRunStats);
   };
 
   useEffect(() => {
     setScore(0);
     setAnsweredCount(0);
-    const nextRunStats = { seenTargetIds: [], correctIds: [], recentOptionIds: [] };
+    const nextRunStats = initialQuizStats();
     setRunStats(nextRunStats);
     setRound(buildQuizRound(candidates, nextRunStats));
+    setRoundRecordings([]);
     setAnswered(false);
     setSelectedAnswerId(null);
     setError(null);
@@ -2240,20 +2465,50 @@ const CallTestMode = ({ candidates, onSelectBird, getLikelihoodBg, getLikelihood
     };
   }, []);
 
+  useEffect(() => {
+    if (!round?.target) return undefined;
+    const abortController = new AbortController();
+    setPreparingAudio(true);
+    setRoundRecordings([]);
+    getRecordingsForBird(round.target, audioAvailability, abortController.signal)
+      .then(recordings => {
+        if (!abortController.signal.aborted) setRoundRecordings(recordings);
+      })
+      .catch(error => {
+        if (!abortController.signal.aborted) {
+          console.warn('Could not prepare quiz audio:', round.target.name, error);
+          setRoundRecordings([]);
+        }
+      })
+      .finally(() => {
+        if (!abortController.signal.aborted) setPreparingAudio(false);
+      });
+    return () => abortController.abort();
+  }, [round?.target?.id, audioAvailability]);
+
+  const replaceUnplayableTarget = () => {
+    const nextStats = {
+      ...runStats,
+      unplayableIds: [...new Set([...(runStats.unplayableIds || []), round.target.id])],
+    };
+    setRunStats(nextStats);
+    setError(`${round.target.name} did not have a playable call, so it was skipped for this run.`);
+    startRoundWithStats(nextStats, true);
+  };
+
   const playQuestion = async () => {
     if (!round?.target || !audioRef.current) return;
     setLoading(true);
     setError(null);
 
     try {
-      const recordings = await fetchBirdRecordings(round.target.scientific);
-      const recording = getPreferredRecording(recordings);
-      if (!recording) throw new Error('No recording available');
-      audioRef.current.src = recording.url;
-      audioRef.current.currentTime = 0;
-      await audioRef.current.play();
+      const recordings = roundRecordings.length
+        ? roundRecordings
+        : await getRecordingsForBird(round.target, audioAvailability);
+      if (!recordings.length) throw new Error('No recording available');
+      await playFirstAvailableRecording(audioRef.current, recordings);
     } catch (err) {
-      setError('Could not play this recording. Try the next call.');
+      replaceUnplayableTarget();
     } finally {
       setLoading(false);
     }
@@ -2270,6 +2525,7 @@ const CallTestMode = ({ candidates, onSelectBird, getLikelihoodBg, getLikelihood
       seenTargetIds: [...new Set([...stats.seenTargetIds, round.target.id])],
       correctIds: correct ? [...new Set([...stats.correctIds, round.target.id])] : stats.correctIds,
       recentOptionIds: [...round.options.map(option => option.id), ...stats.recentOptionIds].slice(0, 12),
+      unplayableIds: stats.unplayableIds || [],
     }));
   };
 
@@ -2299,7 +2555,7 @@ const CallTestMode = ({ candidates, onSelectBird, getLikelihoodBg, getLikelihood
           fontWeight: '700',
           boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
         }}>
-          Score {score}/{answeredCount} · Mastered {runStats.correctIds.length}/{candidates.length}
+          Score {score}/{answeredCount} · Core {round?.coreCovered || 0}/{round?.coreSize || Math.min(CORE_QUIZ_SIZE, candidates.length)}
         </div>
       </div>
 
@@ -2324,7 +2580,7 @@ const CallTestMode = ({ candidates, onSelectBird, getLikelihoodBg, getLikelihood
         <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
           <button
             onClick={playQuestion}
-            disabled={loading || !round}
+            disabled={loading || preparingAudio || !round}
             style={{
               border: 'none',
               background: '#fff',
@@ -2337,7 +2593,7 @@ const CallTestMode = ({ candidates, onSelectBird, getLikelihoodBg, getLikelihood
               minWidth: '118px',
             }}
           >
-            {loading ? 'Loading...' : 'Play Call'}
+            {loading ? 'Playing...' : preparingAudio ? 'Preparing...' : 'Play Call'}
           </button>
           <button
             onClick={startRound}
@@ -2353,6 +2609,21 @@ const CallTestMode = ({ candidates, onSelectBird, getLikelihoodBg, getLikelihood
             }}
           >
             Next
+          </button>
+          <button
+            onClick={resetRun}
+            style={{
+              border: '1px solid rgba(255,255,255,0.35)',
+              background: 'rgba(255,255,255,0.08)',
+              color: '#fff',
+              borderRadius: '12px',
+              padding: '12px 16px',
+              fontSize: '15px',
+              fontWeight: '700',
+              cursor: 'pointer',
+            }}
+          >
+            Reset Run
           </button>
         </div>
       </div>
@@ -2466,6 +2737,8 @@ const BoiseRiverBirdGuide = () => {
   const [weatherLoading, setWeatherLoading] = useState(true);
   const [likelihoodModel, setLikelihoodModel] = useState(null);
   const [likelihoodModelStatus, setLikelihoodModelStatus] = useState('loading');
+  const [audioAvailability, setAudioAvailability] = useState(null);
+  const [audioAvailabilityStatus, setAudioAvailabilityStatus] = useState('loading');
   const [selectedBird, setSelectedBird] = useState(null);
   const [filters, setFilters] = useState({ habitat: 'all', size: 'all', likelihood: 'all' });
   const [searchTerm, setSearchTerm] = useState('');
@@ -2532,6 +2805,29 @@ const BoiseRiverBirdGuide = () => {
     loadLikelihoodModel();
   }, []);
 
+  useEffect(() => {
+    const loadAudioAvailability = async () => {
+      if (window.location.protocol === 'file:') {
+        setAudioAvailability(null);
+        setAudioAvailabilityStatus('live lookup');
+        return;
+      }
+      try {
+        const response = await fetch(AUDIO_AVAILABILITY_URL, { cache: 'no-cache' });
+        if (!response.ok) throw new Error(`Audio availability unavailable: ${response.status}`);
+        const availability = validateAudioAvailability(await response.json());
+        setAudioAvailability(availability);
+        setAudioAvailabilityStatus(availability.status);
+        if (availability.warnings?.length) console.warn('Audio availability loaded with warnings:', availability.warnings);
+      } catch (error) {
+        console.warn('Using live audio lookup:', error.message);
+        setAudioAvailability(null);
+        setAudioAvailabilityStatus('live lookup');
+      }
+    };
+    loadAudioAvailability();
+  }, []);
+
   const allBirdPredictions = useMemo(() => {
     if (!weather) return [];
     return BIRD_DATABASE.map(bird => ({
@@ -2560,17 +2856,36 @@ const BoiseRiverBirdGuide = () => {
   }, [allBirdPredictions, filters, searchTerm]);
 
   const callCandidates = useMemo(() => {
-    const likely = allBirdPredictions.filter(bird => bird.likelihood >= 0.15);
-    return (likely.length >= 4 ? likely : allBirdPredictions).slice(0, 16);
-  }, [allBirdPredictions]);
+    const candidates = allBirdPredictions
+      .map(bird => ({
+        ...bird,
+        audioStatus: hasVerifiedAudio(bird, audioAvailability),
+      }));
+    const likely = candidates.filter(bird => bird.likelihood >= 0.15);
+    const pool = likely.length >= 4 ? likely : candidates;
+    const verified = pool.filter(bird => bird.audioStatus !== false);
+    return (verified.length >= 4 ? verified : pool).slice(0, 24);
+  }, [allBirdPredictions, audioAvailability]);
 
   const testCandidates = useMemo(() => {
     const candidates = allBirdPredictions
-      .map(bird => ({ ...bird, callTestScore: bird.likelihood * (bird.vocalScore ?? 0.5) }))
+      .map(bird => {
+        const audioStatus = hasVerifiedAudio(bird, audioAvailability);
+        const audioModifier = audioStatus === false ? 0.35 : audioStatus === true ? 1.1 : 1;
+        return {
+          ...bird,
+          audioStatus,
+          callTestScore: bird.likelihood * (bird.vocalScore ?? 0.5) * audioModifier,
+        };
+      })
       .sort((a, b) => b.callTestScore - a.callTestScore);
-    const likely = candidates.filter(bird => bird.likelihood >= 0.12);
-    return (likely.length >= 4 ? likely : candidates).slice(0, 16);
-  }, [allBirdPredictions]);
+    const likely = candidates.filter(bird => bird.likelihood >= 0.08 && (bird.vocalScore ?? 0.5) >= 0.35);
+    const playableLikely = likely.filter(bird => bird.audioStatus !== false);
+    const pool = playableLikely.length >= 4 ? playableLikely : likely.length >= 4 ? likely : candidates;
+    return pool
+      .sort((a, b) => b.likelihood - a.likelihood || b.callTestScore - a.callTestScore)
+      .slice(0, 64);
+  }, [allBirdPredictions, audioAvailability]);
 
   useEffect(() => {
     setShowAllMobileSpecies(false);
@@ -2701,21 +3016,47 @@ const BoiseRiverBirdGuide = () => {
 
       {/* Hero Header */}
       <header style={{
-        background: 'linear-gradient(135deg, #1a3a2a 0%, #2d5a3d 50%, #3d6a4d 100%)',
+        backgroundImage: 'linear-gradient(90deg, rgba(22,45,34,0.92) 0%, rgba(22,45,34,0.76) 48%, rgba(22,45,34,0.5) 100%), url("assets/art/greenbelt-art-deco-hero.jpg")',
+        backgroundSize: 'cover',
+        backgroundPosition: isMobile ? 'center top' : 'center 42%',
         padding: '0',
         color: '#fff',
         position: 'relative',
         overflow: 'hidden',
       }}>
-        {/* Animated background elements */}
-        <div style={{ position: 'absolute', inset: 0, opacity: 0.1, pointerEvents: 'none' }}>
-          <div style={{ position: 'absolute', top: '10%', left: '5%', fontSize: '80px', animation: 'float 6s ease-in-out infinite' }}>🌿</div>
-          <div style={{ position: 'absolute', top: '20%', right: '10%', fontSize: '60px', animation: 'float 8s ease-in-out infinite', animationDelay: '1s' }}>🍃</div>
-          <div style={{ position: 'absolute', bottom: '15%', left: '15%', fontSize: '50px', animation: 'float 7s ease-in-out infinite', animationDelay: '2s' }}>🌾</div>
-          <div style={{ position: 'absolute', bottom: '20%', right: '5%', fontSize: '70px', animation: 'float 9s ease-in-out infinite', animationDelay: '0.5s' }}>🌲</div>
+        <div style={{
+          position: 'absolute',
+          inset: 0,
+          background: 'linear-gradient(180deg, rgba(0,0,0,0.14) 0%, rgba(0,0,0,0.34) 100%)',
+          pointerEvents: 'none',
+        }} />
+        <div style={{
+          position: 'absolute',
+          inset: 0,
+          background: 'radial-gradient(circle at 18% 12%, rgba(245,225,173,0.18), transparent 30%)',
+          pointerEvents: 'none',
+          mixBlendMode: 'screen',
+        }} />
+
+        <div style={{
+          position: 'absolute',
+          right: isMobile ? '-70px' : '32px',
+          bottom: isMobile ? '-56px' : '-72px',
+          width: isMobile ? '170px' : '280px',
+          height: isMobile ? '170px' : '280px',
+          border: '1px solid rgba(245,225,173,0.55)',
+          borderRadius: '50%',
+          pointerEvents: 'none',
+        }}>
+          <div style={{
+            position: 'absolute',
+            inset: '18%',
+            border: '1px solid rgba(245,225,173,0.38)',
+            borderRadius: '50%',
+          }} />
         </div>
 
-        <div style={{ position: 'relative', zIndex: 1, padding: '1.5rem 2rem 1.5rem', maxWidth: '1400px', margin: '0 auto' }}>
+        <div style={{ position: 'relative', zIndex: 1, padding: isMobile ? '1.2rem 1rem 1.15rem' : '1.65rem 2rem 1.6rem', maxWidth: '1400px', margin: '0 auto' }}>
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '16px', marginBottom: '12px', flexWrap: 'wrap' }}>
             {/* Title */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -3472,6 +3813,7 @@ const BoiseRiverBirdGuide = () => {
           ) : activeTab === 'learn' ? (
             <CallFlashcards
               candidates={callCandidates}
+              audioAvailability={audioAvailability}
               onSelectBird={setSelectedBird}
               getLikelihoodBg={getLikelihoodBg}
               getLikelihoodLabel={getLikelihoodLabel}
@@ -3480,6 +3822,7 @@ const BoiseRiverBirdGuide = () => {
           ) : (
             <CallTestMode
               candidates={testCandidates}
+              audioAvailability={audioAvailability}
               onSelectBird={setSelectedBird}
               getLikelihoodBg={getLikelihoodBg}
               getLikelihoodLabel={getLikelihoodLabel}
@@ -4501,6 +4844,8 @@ const BoiseRiverBirdGuide = () => {
             opacity: 0.45,
           }}>
             Likelihood model: {likelihoodModelStatus === 'loaded' ? 'static climatology loaded' : likelihoodModelStatus === 'partial' ? 'static climatology with fallbacks' : likelihoodModelStatus === 'loading' ? 'loading static model' : 'built-in fallback'}
+            {' · '}
+            Audio: {audioAvailabilityStatus === 'loaded' ? 'verified recordings loaded' : audioAvailabilityStatus === 'partial' ? 'verified recordings with warnings' : audioAvailabilityStatus === 'loading' ? 'loading audio checks' : 'live lookup'}
           </p>
           <p style={{
             margin: 0,

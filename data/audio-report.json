@@ -1,0 +1,211 @@
+{
+  "generatedAt": "2026-07-05T19:35:02.858Z",
+  "elapsedSeconds": 92.25,
+  "summary": {
+    "speciesTotal": 84,
+    "speciesWithPlayable": 83,
+    "speciesWithoutPlayable": 1,
+    "totalPlayableRecordings": 409,
+    "top20Playable": 20,
+    "top20Total": 20,
+    "top20HitRate": 1
+  },
+  "readinessScenario": {
+    "date": "2026-07-05",
+    "hour": 8,
+    "top20": [
+      {
+        "rank": 1,
+        "key": "bkcchi",
+        "name": "Black-capped Chickadee",
+        "scientific": "Poecile atricapillus",
+        "playableRecordings": 5,
+        "status": "verified",
+        "preferredRecordingId": "1047655"
+      },
+      {
+        "rank": 2,
+        "key": "houspa",
+        "name": "House Sparrow",
+        "scientific": "Passer domesticus",
+        "playableRecordings": 5,
+        "status": "verified",
+        "preferredRecordingId": "1153382"
+      },
+      {
+        "rank": 3,
+        "key": "barswa",
+        "name": "Barn Swallow",
+        "scientific": "Hirundo rustica",
+        "playableRecordings": 5,
+        "status": "verified",
+        "preferredRecordingId": "1029397"
+      },
+      {
+        "rank": 4,
+        "key": "houwre",
+        "name": "House Wren",
+        "scientific": "Troglodytes aedon",
+        "playableRecordings": 5,
+        "status": "verified",
+        "preferredRecordingId": "1012863"
+      },
+      {
+        "rank": 5,
+        "key": "houfin",
+        "name": "House Finch",
+        "scientific": "Haemorhous mexicanus",
+        "playableRecordings": 5,
+        "status": "verified",
+        "preferredRecordingId": "1151491"
+      },
+      {
+        "rank": 6,
+        "key": "rocpig",
+        "name": "Rock Pigeon",
+        "scientific": "Columba livia",
+        "playableRecordings": 5,
+        "status": "verified",
+        "preferredRecordingId": "462611"
+      },
+      {
+        "rank": 7,
+        "key": "amerob",
+        "name": "American Robin",
+        "scientific": "Turdus migratorius",
+        "playableRecordings": 5,
+        "status": "verified",
+        "preferredRecordingId": "1089129"
+      },
+      {
+        "rank": 8,
+        "key": "warvir",
+        "name": "Warbling Vireo",
+        "scientific": "Vireo gilvus",
+        "playableRecordings": 5,
+        "status": "verified",
+        "preferredRecordingId": "827595"
+      },
+      {
+        "rank": 9,
+        "key": "spotow",
+        "name": "Spotted Towhee",
+        "scientific": "Pipilo maculatus",
+        "playableRecordings": 5,
+        "status": "verified",
+        "preferredRecordingId": "1099315"
+      },
+      {
+        "rank": 10,
+        "key": "geothlypis-trichas",
+        "name": "Common Yellowthroat",
+        "scientific": "Geothlypis trichas",
+        "playableRecordings": 5,
+        "status": "verified",
+        "preferredRecordingId": "1014863"
+      },
+      {
+        "rank": 11,
+        "key": "cliswa",
+        "name": "Cliff Swallow",
+        "scientific": "Petrochelidon pyrrhonota",
+        "playableRecordings": 5,
+        "status": "verified",
+        "preferredRecordingId": "737195"
+      },
+      {
+        "rank": 12,
+        "key": "yelwar",
+        "name": "Yellow Warbler",
+        "scientific": "Setophaga petechia",
+        "playableRecordings": 5,
+        "status": "verified",
+        "preferredRecordingId": "1101669"
+      },
+      {
+        "rank": 13,
+        "key": "amegfi",
+        "name": "American Goldfinch",
+        "scientific": "Spinus tristis",
+        "playableRecordings": 5,
+        "status": "verified",
+        "preferredRecordingId": "1021831"
+      },
+      {
+        "rank": 14,
+        "key": "moudov",
+        "name": "Mourning Dove",
+        "scientific": "Zenaida macroura",
+        "playableRecordings": 5,
+        "status": "verified",
+        "preferredRecordingId": "691623"
+      },
+      {
+        "rank": 15,
+        "key": "agelaius-phoeniceus",
+        "name": "Red-winged Blackbird",
+        "scientific": "Agelaius phoeniceus",
+        "playableRecordings": 5,
+        "status": "verified",
+        "preferredRecordingId": "1089594"
+      },
+      {
+        "rank": 16,
+        "key": "sonspa",
+        "name": "Song Sparrow",
+        "scientific": "Melospiza melodia",
+        "playableRecordings": 5,
+        "status": "verified",
+        "preferredRecordingId": "1021087"
+      },
+      {
+        "rank": 17,
+        "key": "treswa",
+        "name": "Tree Swallow",
+        "scientific": "Tachycineta bicolor",
+        "playableRecordings": 5,
+        "status": "verified",
+        "preferredRecordingId": "1045720"
+      },
+      {
+        "rank": 18,
+        "key": "bkhgro",
+        "name": "Black-headed Grosbeak",
+        "scientific": "Pheucticus melanocephalus",
+        "playableRecordings": 5,
+        "status": "verified",
+        "preferredRecordingId": "1086272"
+      },
+      {
+        "rank": 19,
+        "key": "amecro",
+        "name": "American Crow",
+        "scientific": "Corvus brachyrhynchos",
+        "playableRecordings": 5,
+        "status": "verified",
+        "preferredRecordingId": "984442"
+      },
+      {
+        "rank": 20,
+        "key": "weskin",
+        "name": "Western Kingbird",
+        "scientific": "Tyrannus verticalis",
+        "playableRecordings": 5,
+        "status": "verified",
+        "preferredRecordingId": "408622"
+      }
+    ]
+  },
+  "failures": {
+    "counts": {},
+    "speciesWithoutPlayable": [
+      {
+        "key": "lophodytes-cucullatus",
+        "name": "Hooded Merganser",
+        "scientific": "Lophodytes cucullatus",
+        "status": "no-recordings",
+        "failures": []
+      }
+    ]
+  }
+}

@@ -32,13 +32,16 @@ export default {
         headers: {
           'Access-Control-Allow-Origin': corsOrigin,
           'Access-Control-Allow-Methods': 'GET, OPTIONS',
-          'Access-Control-Allow-Headers': 'Content-Type',
+          'Access-Control-Allow-Headers': 'Content-Type, Range',
+          'Access-Control-Expose-Headers': 'Accept-Ranges, Content-Length, Content-Range, Content-Type',
         }
       });
     }
 
     const url = new URL(request.url);
+    const audioUrl = url.searchParams.get('audio');
     const species = url.searchParams.get('species');
+    const quality = url.searchParams.get('quality') || 'A';
 
     if (request.method !== 'GET') {
       return new Response(JSON.stringify({ error: 'Method not allowed' }), {
@@ -49,6 +52,55 @@ export default {
           'Allow': 'GET, OPTIONS'
         }
       });
+    }
+
+    if (audioUrl) {
+      let targetUrl;
+      try {
+        targetUrl = new URL(audioUrl);
+      } catch (err) {
+        return new Response(JSON.stringify({ error: 'Invalid audio URL' }), {
+          status: 400,
+          headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': corsOrigin }
+        });
+      }
+
+      if (targetUrl.protocol !== 'https:' || targetUrl.hostname !== 'xeno-canto.org') {
+        return new Response(JSON.stringify({ error: 'Audio URL must be hosted by xeno-canto.org' }), {
+          status: 400,
+          headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': corsOrigin }
+        });
+      }
+
+      const upstreamHeaders = new Headers();
+      const range = request.headers.get('Range');
+      if (range) upstreamHeaders.set('Range', range);
+
+      try {
+        const audioResponse = await fetch(targetUrl.toString(), { headers: upstreamHeaders });
+        const headers = new Headers();
+        headers.set('Access-Control-Allow-Origin', corsOrigin);
+        headers.set('Access-Control-Expose-Headers', 'Accept-Ranges, Content-Length, Content-Range, Content-Type');
+        headers.set('Cache-Control', 'public, max-age=86400');
+        headers.set('Cross-Origin-Resource-Policy', 'cross-origin');
+        headers.set('Content-Disposition', 'inline');
+        const contentType = audioResponse.headers.get('Content-Type') || 'audio/mpeg';
+        headers.set('Content-Type', contentType);
+        for (const headerName of ['Accept-Ranges', 'Content-Length', 'Content-Range']) {
+          const value = audioResponse.headers.get(headerName);
+          if (value) headers.set(headerName, value);
+        }
+        return new Response(audioResponse.body, {
+          status: audioResponse.status,
+          statusText: audioResponse.statusText,
+          headers
+        });
+      } catch (err) {
+        return new Response(JSON.stringify({ error: 'Failed to fetch audio' }), {
+          status: 502,
+          headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': corsOrigin }
+        });
+      }
     }
 
     if (!species) {
@@ -65,8 +117,15 @@ export default {
       });
     }
 
+    if (!/^(any|[A-E])$/i.test(quality)) {
+      return new Response(JSON.stringify({ error: 'Invalid quality parameter' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': corsOrigin }
+      });
+    }
+
     // Create a cache key based on species
-    const cacheKey = new Request(`https://cache.local/${species}`, request);
+    const cacheKey = new Request(`https://cache.local/${species}/${quality}`, request);
     const cache = caches.default;
 
     // Check cache first
@@ -80,7 +139,8 @@ export default {
     }
 
     // Not cached, fetch from xeno-canto
-    const apiParams = new URLSearchParams({ query: `sp:"${species}" q:A` });
+    const query = quality.toLowerCase() === 'any' ? `sp:"${species}"` : `sp:"${species}" q:${quality.toUpperCase()}`;
+    const apiParams = new URLSearchParams({ query });
     if (env.XENO_CANTO_API_KEY) apiParams.set('key', env.XENO_CANTO_API_KEY);
     const apiUrl = `https://xeno-canto.org/api/3/recordings?${apiParams.toString()}`;
 
